@@ -81,3 +81,38 @@ packageProject(
 install(TARGETS ${PROJECT_NAME}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+# SeqLib
+include(ExternalProject)
+include(FindZLIB)
+include(FindBZip2)
+include(FindLibLZMA)
+include(FindThreads)
+set(SEQLIB_DIR "${CMAKE_CURRENT_LIST_DIR}/SeqLib")
+
+ExternalProject_Add(seqlib
+  SOURCE_DIR ${SEQLIB_DIR}
+  BUILD_IN_SOURCE 1
+  CONFIGURE_COMMAND ./configure
+  BUILD_COMMAND $(MAKE) CXXFLAGS='-std=c++14'
+  INSTALL_COMMAND $(MAKE) install)
+
+set(seqlib_INCLUDE "${SEQLIB_DIR}")
+set(seqlib_LIB "${SEQLIB_DIR}/lib")
+
+set(seqsrc_INCLUDES
+  "${seqlib_INCLUDE}"
+  "${seqlib_INCLUDE}/htslib")
+
+set(seqsrc_LIBS
+  "${seqlib_LIB}/libseqlib.a"
+  "${seqlib_LIB}/libhts.a"
+  ${CMAKE_THREAD_LIBS_INIT}
+  ${ZLIB_LIBRARIES}
+  ${LIBLZMA_LIBRARIES}
+  ${BZIP2_LIBRARIES})
+
+add_dependencies(${PROJECT_NAME} seqlib)
+target_include_directories(${PROJECT_NAME} PRIVATE ${seqsrc_INCLUDES})
+target_link_libraries(${PROJECT_NAME} PRIVATE ${seqsrc_LIBS})
+

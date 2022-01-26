@@ -1,0 +1,3 @@
+[submodule "bioseq_lib/SeqLib"]
+	path = bioseq_lib/SeqLib
+	url = https://github.com/walaj/SeqLib/
