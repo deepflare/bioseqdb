@@ -3,6 +3,9 @@ cmake_minimum_required(VERSION 3.14)
 project(bioseqdb LANGUAGES CXX)
 
 find_package(PostgreSQL REQUIRED COMPONENTS Server)
+find_program(PG_CONFIG pg_config)
+execute_process(COMMAND ${PG_CONFIG} --pkglibdir OUTPUT_VARIABLE PG_CONFIG_PKGLIBDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND ${PG_CONFIG} --sharedir OUTPUT_VARIABLE PG_CONFIG_SHAREDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
 
 add_library(bioseqdb_pg SHARED
         bioseqdb_pg/extension.cpp
@@ -10,3 +13,7 @@ add_library(bioseqdb_pg SHARED
 
 target_include_directories(bioseqdb_pg PRIVATE ${PostgreSQL_TYPE_INCLUDE_DIR})
 target_link_libraries(bioseqdb_pg PRIVATE ${PostgreSQL_LIBRARIES})
+
+install(TARGETS bioseqdb_pg DESTINATION ${PG_CONFIG_PKGLIBDIR})
+install(FILES bioseqdb_pg/bioseqdb.control DESTINATION ${PG_CONFIG_SHAREDIR}/extension)
+install(FILES bioseqdb_pg/bioseqdb--0.0.0.sql DESTINATION ${PG_CONFIG_SHAREDIR}/extension)
