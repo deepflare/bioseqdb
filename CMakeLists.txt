@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.14)
 
 project(bioseqdb LANGUAGES CXX)
 
+set(CMAKE_CXX_STANDARD 17)
+
 find_package(PostgreSQL REQUIRED COMPONENTS Server)
 find_program(PG_CONFIG pg_config)
 execute_process(COMMAND ${PG_CONFIG} --pkglibdir OUTPUT_VARIABLE PG_CONFIG_PKGLIBDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
