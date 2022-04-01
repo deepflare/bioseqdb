@@ -1,10 +1,12 @@
 #include <algorithm>
+#include <string>
 #include <string_view>
 
 extern "C" {
 #include <postgres.h>
 #include <fmgr.h>
 #include <funcapi.h>
+#include <miscadmin.h>
 }
 
 struct PgNucleotideSequence {
@@ -113,6 +115,66 @@ Datum yoyo_v1(PG_FUNCTION_ARGS) {
     } else {
         SRF_RETURN_DONE(funcctx);
     }
+}
+
+PG_FUNCTION_INFO_V1(yoyo_v2);
+Datum yoyo_v2(PG_FUNCTION_ARGS) {
+    ReturnSetInfo* rsi = reinterpret_cast<ReturnSetInfo*>(fcinfo->resultinfo);
+    if (rsi == NULL || !IsA(rsi, ReturnSetInfo)) {
+        ereport(ERROR,
+                (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                errmsg("set-valued function called in context that cannot accept a set")));
+    }
+    if (!(rsi->allowedModes & SFRM_Materialize)) {
+        ereport(ERROR,
+                (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                errmsg("materialize mode required, but it is not allowed in this context")));
+    }
+
+    MemoryContext per_query_ctx = rsi->econtext->ecxt_per_query_memory;
+
+    TupleDesc tupdesc;
+    switch (get_call_result_type(fcinfo, nullptr, &tupdesc)) {
+        case TYPEFUNC_COMPOSITE:
+            break;
+        case TYPEFUNC_RECORD:
+            ereport(ERROR,
+                    (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                    errmsg("function returning record called in context that cannot accept type record")));
+            break;
+        default:
+            ereport(ERROR,
+                    (errcode(ERRCODE_DATATYPE_MISMATCH),
+                    errmsg("return type must be a row type")));
+            break;
+    }
+
+    MemoryContext old_ctx = MemoryContextSwitchTo(per_query_ctx);
+    tupdesc = CreateTupleDescCopy(tupdesc);
+    Tuplestorestate* tupstore = tuplestore_begin_heap(rsi->allowedModes & SFRM_Materialize_Random, false, work_mem);
+    MemoryContextSwitchTo(old_ctx);
+
+    AttInMetadata* attr_input_meta = TupleDescGetAttInMetadata(tupdesc);
+
+    for (int i=0; i<6; ++i) {
+        std::string alpha = std::to_string(i + 1);
+        std::string beta = std::to_string((i + 1) * (i + 1));
+        alpha.c_str();
+        beta.c_str();
+
+        char* values[2];
+        values[0] = alpha.data();
+        values[1] = beta.data();
+
+        HeapTuple tuple = BuildTupleFromCStrings(attr_input_meta, values);
+        tuplestore_puttuple(tupstore, tuple);
+        heap_freetuple(tuple);
+    }
+
+    rsi->returnMode = SFRM_Materialize;
+    rsi->setResult = tupstore;
+    rsi->setDesc = tupdesc;
+    return (Datum) nullptr;
 }
 
 }
