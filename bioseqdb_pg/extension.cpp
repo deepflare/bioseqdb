@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <chrono>
+#include <random>
 #include <string>
 #include <string_view>
 
@@ -156,15 +158,23 @@ Datum yoyo_v2(PG_FUNCTION_ARGS) {
 
     AttInMetadata* attr_input_meta = TupleDescGetAttInMetadata(tupdesc);
 
+    std::minstd_rand rng(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+
     for (int i=0; i<6; ++i) {
         std::string alpha = std::to_string(i + 1);
         std::string beta = std::to_string((i + 1) * (i + 1));
+        std::string gamma;
+        for (int j=0; j<20; ++j) {
+            gamma += "ACGT"[std::uniform_int_distribution<int>(0, 3)(rng)];
+        }
         alpha.c_str();
         beta.c_str();
+        gamma.c_str();
 
-        char* values[2];
+        char* values[3];
         values[0] = alpha.data();
         values[1] = beta.data();
+        values[2] = gamma.data();
 
         HeapTuple tuple = BuildTupleFromCStrings(attr_input_meta, values);
         tuplestore_puttuple(tupstore, tuple);

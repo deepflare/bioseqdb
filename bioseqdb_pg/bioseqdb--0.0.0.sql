@@ -38,7 +38,8 @@ CREATE FUNCTION yoyo_v1(INTEGER)
 
 CREATE TYPE bwa_result AS (
     alpha INTEGER,
-    beta INTEGER
+    beta INTEGER,
+    gamma NUCLSEQ
 );
 
 CREATE FUNCTION yoyo_v2()
