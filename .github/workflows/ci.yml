@@ -16,8 +16,17 @@ jobs:
           status: STARTING
           color: warning
       - uses: actions/checkout@v2
-      - name: Install Ubuntu dependencies
-        run: sudo apt-get install -y libseqlib-dev postgresql postgresql-server-dev-all
+      - name: Install Postgres
+        run: sudo apt-get install -y postgresql postgresql-server-dev-all
+      - name: Install SeqLib
+        run: >
+          git clone --recursive https://github.com/walaj/SeqLib.git &&
+          cd SeqLib &&
+          ./configure &&
+          make CFLAGS='-g -Wall -O2 -fPIC' CXXFLAGS='-g -Wall -O2 -fPIC' &&
+          make install &&
+          sudo cp lib/* /usr/local/lib/ &&
+          find ./{bwa,fermi-lite,htslib,SeqLib} -name "*.h" | sudo xargs cp --parents -t /usr/local/include/
       - name: Build Postgres extension
         run: mkdir build && cd build && cmake .. && make
       - name: Notify slack about build success
