@@ -18,7 +18,16 @@ jobs:
       - uses: actions/checkout@v2
       - name: Install Postgres
         run: sudo apt-get install -y postgresql postgresql-server-dev-all
-      - name: Install SeqLib
+      - name: Install SeqLib (from cache)
+        id: cache-install-seqlib
+        uses: actions/cache@v3
+        with:
+          path:
+            - /usr/local/lib
+            - /usr/local/include
+          key: install-seqlib
+      - name: Install SeqLib (build)
+        if: steps.cache-install-seqlib.outputs.cache-hit != 'true'
         run: >
           git clone --recursive https://github.com/walaj/SeqLib.git &&
           cd SeqLib &&
