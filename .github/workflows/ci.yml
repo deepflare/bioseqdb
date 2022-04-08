@@ -22,9 +22,7 @@ jobs:
         id: cache-install-seqlib
         uses: actions/cache@v3
         with:
-          path:
-            - /usr/local/lib
-            - /usr/local/include
+          path: /usr/local
           key: install-seqlib
       - name: Install SeqLib (build)
         if: steps.cache-install-seqlib.outputs.cache-hit != 'true'
