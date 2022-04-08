@@ -37,7 +37,7 @@ jobs:
           cp SeqLib/lib/* cache-seqlib/lib/ &&
           find ./{bwa,fermi-lite,htslib,SeqLib} -name "*.h" | xargs cp --parents -t cache-seqlib/include/
       - name: Install SeqLib (install)
-        run: sudo cp cache-seqlib/* /usr/local/
+        run: sudo cp -r cache-seqlib/* /usr/local/
       - name: Build Postgres extension
         run: mkdir build && cd build && cmake .. && make
       - name: Notify slack about build success
