@@ -32,13 +32,7 @@ struct PgNucleotideSequence {
 
 namespace {
 
-template <typename T> std::string show_ts(const T& x) {
-    std::string s = std::to_string(x);
-    s.c_str();
-    return std::move(s);
-}
-
-template <typename T> std::string show_ss(const T& x) {
+template <typename T> std::string show(const T& x) {
     std::stringstream ss;
     ss << x;
     std::string s = ss.str();
@@ -212,12 +206,12 @@ Datum nuclseq_search_bwa(PG_FUNCTION_ARGS) {
     for (int i = 0; i < results.size(); ++i) {
         SeqLib::BamRecord& row = results[i];
 
-        std::string id = show_ts(i);
-        std::string target_start = show_ts(row.Position());
-        std::string target_end = show_ts(row.PositionEnd());
-        std::string target_len = show_ts(row.Length());
-        std::string target_aligned = show_ss(row.Sequence());
-        std::string result = show_ss(row);
+        std::string id = show(i);
+        std::string target_start = show(row.Position());
+        std::string target_end = show(row.PositionEnd());
+        std::string target_len = show(row.Length());
+        std::string target_aligned = show(row.Sequence());
+        std::string result = show(row);
 
         char* values[7];
         values[0] = id.data();
