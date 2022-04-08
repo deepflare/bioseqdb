@@ -22,7 +22,15 @@ jobs:
         id: cache-install-seqlib
         uses: actions/cache@v3
         with:
-          path: /usr/local
+          path: |
+            /usr/local/lib/libbwa.a
+            /usr/local/lib/libfml.a
+            /usr/local/lib/libhts.a
+            /usr/local/lib/libseqlib.a
+            /usr/local/include/bwa/
+            /usr/local/include/fermi-lite/
+            /usr/local/include/htslib/
+            /usr/local/include/SeqLib/
           key: install-seqlib
       - name: Install SeqLib (build)
         if: steps.cache-install-seqlib.outputs.cache-hit != 'true'
