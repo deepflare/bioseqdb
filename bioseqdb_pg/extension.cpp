@@ -201,8 +201,6 @@ Datum nuclseq_search_bwa(PG_FUNCTION_ARGS) {
     }
     error.c_str();
 
-    results.resize(std::max((int) results.size(), 1));
-
     for (int i = 0; i < results.size(); ++i) {
         SeqLib::BamRecord& row = results[i];
 
