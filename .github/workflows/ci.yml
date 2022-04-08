@@ -32,10 +32,9 @@ jobs:
           ./configure &&
           make CFLAGS='-g -Wall -O2 -fPIC' CXXFLAGS='-g -Wall -O2 -fPIC' &&
           make install &&
-          cd .. &&
-          mkdir -p cache-seqlib/lib cache-seqlib/include &&
-          cp SeqLib/lib/* cache-seqlib/lib/ &&
-          find ./{bwa,fermi-lite,htslib,SeqLib} -name "*.h" | xargs cp --parents -t cache-seqlib/include/
+          mkdir -p ../cache-seqlib/lib ../cache-seqlib/include &&
+          cp lib/* ../cache-seqlib/lib/ &&
+          find ./{bwa,fermi-lite,htslib,SeqLib} -name "*.h" | xargs cp --parents -t ../cache-seqlib/include/
       - name: Install SeqLib (install)
         run: sudo cp -r cache-seqlib/* /usr/local/
       - name: Build Postgres extension
