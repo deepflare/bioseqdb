@@ -31,7 +31,7 @@ jobs:
             /usr/local/include/fermi-lite/
             /usr/local/include/htslib/
             /usr/local/include/SeqLib/
-          key: install-seqlib
+          key: install-seqlib-v2
       - name: Install SeqLib (build)
         if: steps.cache-install-seqlib.outputs.cache-hit != 'true'
         run: >
