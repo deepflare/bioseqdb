@@ -53,7 +53,7 @@ PG_FUNCTION_INFO_V1(nuclseq_in);
 Datum nuclseq_in(PG_FUNCTION_ARGS) {
     std::string_view text = PG_GETARG_CSTRING(0);
     for (char chr : text) {
-        if (chr != 'A' && chr != 'C' && chr != 'G' && chr != 'T') {
+        if (chr != 'A' && chr != 'C' && chr != 'G' && chr != 'T' && chr != 'N') {
             raise_pg_error(ERRCODE_INVALID_TEXT_REPRESENTATION,
                     errmsg("invalid nucleotide in nuclseq_in: '%c'", chr));
         }
@@ -83,7 +83,7 @@ PG_FUNCTION_INFO_V1(nuclseq_content);
 Datum nuclseq_content(PG_FUNCTION_ARGS) {
     auto nucls = reinterpret_cast<PgNucleotideSequence*>(PG_GETARG_POINTER(0))->text();
     std::string_view needle = PG_GETARG_CSTRING(1);
-    if (needle != "A" && needle != "C" && needle != "G" && needle != "T") {
+    if (needle != "A" && needle != "C" && needle != "G" && needle != "T" && needle != "N") {
         raise_pg_error(ERRCODE_INVALID_PARAMETER_VALUE,
                 errmsg("invalid nucleotide in nuclseq_content: '%s'", needle.data()));
     }
@@ -105,6 +105,8 @@ Datum nuclseq_complement(PG_FUNCTION_ARGS) {
             complement->nucleotides[i] = 'G';
         } else if (nucls[i] == 'G') {
             complement->nucleotides[i] = 'T';
+        } else if (nucls[i] == 'N') {
+            complement->nucleotides[i] = 'N';
         }
     }
     PG_RETURN_POINTER(complement);
