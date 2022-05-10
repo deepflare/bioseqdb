@@ -35,7 +35,11 @@ struct PgNucleotideSequence {
 
 namespace {
 
-const std::string_view allowedNucleotides = "ACGTNacgtn";
+// Lowercase nucleotides should not be allowed to be stored in the database. Their meaning in non-standardized, and some
+// libraries can handle them poorly (for example, by replacing them with Ns). They should be handled before importing
+// them into the database, in order to make the internals more robust and prevent accidental usage. A valid option when
+// importing is replacing them with uppercase ones, as their most common use is for repeating but valid nucleotides.
+const std::string_view allowedNucleotides = "ACGTN";
 
 template <typename T> std::string show(const T& x) {
     std::stringstream ss;
@@ -90,12 +94,8 @@ Datum nuclseq_content(PG_FUNCTION_ARGS) {
                 errmsg("invalid nucleotide in nuclseq_content: '%s'", needle.data()));
     }
 
-    int matches = 0;
-    for (char chr : nucls) {
-        if (std::tolower(chr) == std::tolower(needle[0]))
-            ++matches;
-    }
-    PG_RETURN_FLOAT8((double) matches / nucls.size());
+    auto matches = static_cast<double>(std::count(nucls.begin(), nucls.end(), needle[0]));
+    PG_RETURN_FLOAT8(matches / nucls.size());
 }
 
 PG_FUNCTION_INFO_V1(nuclseq_complement);
@@ -113,16 +113,6 @@ Datum nuclseq_complement(PG_FUNCTION_ARGS) {
             complement->nucleotides[i] = 'T';
         } else if (nucls[i] == 'N') {
             complement->nucleotides[i] = 'N';
-        } else if (nucls[i] == 'a') {
-            complement->nucleotides[i] = 'c';
-        } else if (nucls[i] == 'c') {
-            complement->nucleotides[i] = 'a';
-        } else if (nucls[i] == 't') {
-            complement->nucleotides[i] = 'g';
-        } else if (nucls[i] == 'g') {
-            complement->nucleotides[i] = 't';
-        } else if (nucls[i] == 'n') {
-            complement->nucleotides[i] = 'n';
         }
     }
     PG_RETURN_POINTER(complement);
