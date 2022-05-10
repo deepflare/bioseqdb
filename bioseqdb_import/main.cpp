@@ -5,6 +5,15 @@
 
 #include <libpq-fe.h>
 
+void check_pg(PGconn* connection, PGresult* result) {
+    if (PQresultStatus(result) != PGRES_COMMAND_OK) {
+        std::cerr << "\x1B[1;31merror:\x1B[0m postgres error\n\x1B[1;33mdetails:\x1B[0m\n" << PQerrorMessage(connection);
+        PQclear(result);
+        std::exit(1);
+    }
+    PQclear(result);
+}
+
 int main(int argc, char* argv[]) {
     if (argc != 6) {
         std::cerr << "\x1B[1;31merror:\x1B[0m invalid command-line arguments\n\x1B[1;34musage:\x1B[0m " << argv[0] << " <TABLE> <NAME COLUMN> <SEQUENCE COLUMN> <FASTA FILE> <POSTGRES URL>\n";
@@ -27,7 +36,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    PQexec(connection, "BEGIN;");
+    check_pg(connection, PQexec(connection, "BEGIN;"));
 
     std::string current_name;
     std::string current_sequence;
@@ -37,7 +46,7 @@ int main(int argc, char* argv[]) {
         if (current_sequence.length() > 0) {
             std::cout << "inserting sequence '" << current_name << "' [" << current_sequence.length() << " bytes]\n";
             const char* params[2] = {current_name.c_str(), current_sequence.c_str()};
-            PQexecParams(connection, insert_query.c_str(), 2, nullptr, params, nullptr, nullptr, 1);
+            check_pg(connection, PQexecParams(connection, insert_query.c_str(), 2, nullptr, params, nullptr, nullptr, 1));
             current_sequence.clear();
         }
         current_name.clear();
@@ -52,7 +61,7 @@ int main(int argc, char* argv[]) {
     }
     try_submit_sequence();
 
-    PQexec(connection, "COMMIT;");
+    check_pg(connection, PQexec(connection, "COMMIT;"));
 
     PQfinish(connection);
 }
