@@ -35,6 +35,8 @@ struct PgNucleotideSequence {
 
 namespace {
 
+const std::string_view allowedNucleotides = "ACGTNacgtn";
+
 template <typename T> std::string show(const T& x) {
     std::stringstream ss;
     ss << x;
@@ -53,7 +55,7 @@ PG_FUNCTION_INFO_V1(nuclseq_in);
 Datum nuclseq_in(PG_FUNCTION_ARGS) {
     std::string_view text = PG_GETARG_CSTRING(0);
     for (char chr : text) {
-        if (chr != 'A' && chr != 'C' && chr != 'G' && chr != 'T' && chr != 'N') {
+        if (std::find(allowedNucleotides.begin(), allowedNucleotides.end(), chr) == allowedNucleotides.end()) {
             raise_pg_error(ERRCODE_INVALID_TEXT_REPRESENTATION,
                     errmsg("invalid nucleotide in nuclseq_in: '%c'", chr));
         }
@@ -83,13 +85,17 @@ PG_FUNCTION_INFO_V1(nuclseq_content);
 Datum nuclseq_content(PG_FUNCTION_ARGS) {
     auto nucls = reinterpret_cast<PgNucleotideSequence*>(PG_GETARG_POINTER(0))->text();
     std::string_view needle = PG_GETARG_CSTRING(1);
-    if (needle != "A" && needle != "C" && needle != "G" && needle != "T" && needle != "N") {
+    if (needle.length() != 1 || std::find(allowedNucleotides.begin(), allowedNucleotides.end(), needle[0]) == allowedNucleotides.end()) {
         raise_pg_error(ERRCODE_INVALID_PARAMETER_VALUE,
                 errmsg("invalid nucleotide in nuclseq_content: '%s'", needle.data()));
     }
 
-    auto matches = static_cast<double>(std::count(nucls.begin(), nucls.end(), needle[0]));
-    PG_RETURN_FLOAT8(matches / nucls.size());
+    int matches = 0;
+    for (char chr : nucls) {
+        if (std::tolower(chr) == std::tolower(needle[0]))
+            ++matches;
+    }
+    PG_RETURN_FLOAT8((double) matches / nucls.size());
 }
 
 PG_FUNCTION_INFO_V1(nuclseq_complement);
@@ -107,6 +113,16 @@ Datum nuclseq_complement(PG_FUNCTION_ARGS) {
             complement->nucleotides[i] = 'T';
         } else if (nucls[i] == 'N') {
             complement->nucleotides[i] = 'N';
+        } else if (nucls[i] == 'a') {
+            complement->nucleotides[i] = 'c';
+        } else if (nucls[i] == 'c') {
+            complement->nucleotides[i] = 'a';
+        } else if (nucls[i] == 't') {
+            complement->nucleotides[i] = 'g';
+        } else if (nucls[i] == 'g') {
+            complement->nucleotides[i] = 't';
+        } else if (nucls[i] == 'n') {
+            complement->nucleotides[i] = 'n';
         }
     }
     PG_RETURN_POINTER(complement);
