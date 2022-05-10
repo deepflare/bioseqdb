@@ -56,6 +56,8 @@ int main(int argc, char* argv[]) {
             try_submit_sequence();
             current_name = current_line.substr(1);
         } else {
+            for (char& chr : current_line)
+                chr = (char) std::toupper(chr);
             current_sequence += current_line;
         }
     }
