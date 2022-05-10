@@ -27,6 +27,7 @@ target_include_directories(bioseqdb_pg PRIVATE ${PostgreSQL_TYPE_INCLUDE_DIR})
 target_link_libraries(bioseqdb_pg PRIVATE ${PostgreSQL_LIBRARIES})
 target_link_libraries(bioseqdb_pg PRIVATE ${BZIP2_LIBRARIES})
 target_link_libraries(bioseqdb_pg PRIVATE ${SEQLIB_LIBRARIES} ${FML_LIBRARIES} ${HTS_LIBRARIES} ${BWA_LIBRARIES})
+target_include_directories(bioseqdb_import PRIVATE ${PostgreSQL_INCLUDE_DIRS})
 target_link_libraries(bioseqdb_import PRIVATE ${PostgreSQL_LIBRARIES})
 
 install(TARGETS bioseqdb_pg DESTINATION ${PG_CONFIG_PKGLIBDIR})
