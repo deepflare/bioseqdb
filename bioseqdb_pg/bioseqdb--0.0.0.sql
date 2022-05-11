@@ -44,16 +44,13 @@ CREATE FUNCTION nuclseq_search_bwa(NUCLSEQ, CSTRING, CSTRING, CSTRING, BOOLEAN)
     LANGUAGE C STABLE STRICT;
 
 CREATE TYPE multi_bwa_result AS (
+    reference_id INTEGER,
     id_query INTEGER,
-    id_target INTEGER,
-    target_start INTEGER,
-    target_end INTEGER,
-    target_len INTEGER,
-    target_aligned NUCLSEQ,
-    result TEXT
+    is_secondary BOOLEAN,
+    dummy_nuclseq NUCLSEQ
 );
 
-CREATE FUNCTION nuclseq_multi_search_bwa(CSTRING,  CSTRING, CSTRING, CSTRING, CSTRING, CSTRING, BOOLEAN, DOUBLE PRECISION, INTEGER)
+CREATE FUNCTION nuclseq_multi_search_bwa(CSTRING,  CSTRING, CSTRING, CSTRING, CSTRING, CSTRING, BOOLEAN)
     RETURNS SETOF multi_bwa_result
     AS 'MODULE_PATHNAME'
     LANGUAGE C STABLE STRICT;

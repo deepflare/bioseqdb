@@ -312,49 +312,38 @@ Datum nuclseq_multi_search_bwa(PG_FUNCTION_ARGS) {
     std::string_view seq_col_name = PG_GETARG_CSTRING(5);
 
     bool hardclip = PG_GETARG_BOOL(6);
-    double kswfops = PG_GETARG_FLOAT8(7);
-    int max_secondary = PG_GETARG_INT32(8);
 
     if (int ret = SPI_connect(); ret < 0) 
         elog(ERROR, "connectby: SPI_connect returned %d", ret);
 
     TupleDesc ret_tupdest = get_retval_tupledesc(fcinfo);
     std::string isql = build_fetch_query(table_name, id_col_name, seq_col_name);
-    Oid nuclseq_oid = TupleDescAttr(ret_tupdest, 5)->atttypid;
-//    SeqLib::BWAWrapper bwa = bwa_index_from_query(isql, nuclseq_oid);
+    Oid nuclseq_oid = TupleDescAttr(ret_tupdest, 3)->atttypid;
+    BioseqdbBWA bwa = bwa_index_from_query(isql, nuclseq_oid);
     Tuplestorestate* ret_tupstore = create_tuplestore(rsi, ret_tupdest);
     AttInMetadata* attr_input_meta = TupleDescGetAttInMetadata(ret_tupdest);
 
     std::string qsql = build_fetch_query(table_name, id_col_name, seq_col_name);
-//    SeqLib::BamRecordVector aligns;
-//    iterate_nuclseq_table(qsql, nuclseq_oid, [&](auto id, auto nuclseq){
-//        bwa.AlignSequence(std::string(nuclseq), id, aligns, hardclip, kswfops, max_secondary);
-//
-//        for (SeqLib::BamRecord& row : aligns) {
-//            std::string target_name = bwa.ChrIDToName(row.ChrID());
-//            std::string target_start = show(row.Position());
-//            std::string target_end = show(row.PositionEnd());
-//            std::string target_len = show(row.Length());
-//            std::string target_aligned = show(row.Sequence());
-//            std::string result = show(row);
-//
-//            char* values[] = {
-//                id,
-//                target_name.data(),
-//                target_start.data(),
-//                target_end.data(),
-//                target_len.data(),
-//                target_aligned.data(),
-//                result.data(),
-//            };
-//
-//            HeapTuple tuple = BuildTupleFromCStrings(attr_input_meta, values);
-//            tuplestore_puttuple(ret_tupstore, tuple);
-//            heap_freetuple(tuple);
-//        }
-//
-//        aligns.clear();
-//    });
+    iterate_nuclseq_table(qsql, nuclseq_oid, [&](auto id, auto nuclseq){
+        std::vector<AlignMatch> aligns = bwa.align_sequence(nuclseq, hardclip);
+
+        for (AlignMatch& row : aligns) {
+            std::string reference_id = show(row.reference_id);
+            std::string id_query = show(id);
+            std::string is_secondary = show(row.is_secondary);
+            std::string dummy_nuclseq = show("");
+
+            char* values[4];
+            values[0] = reference_id.data();
+            values[1] = id_query.data();
+            values[2] = is_secondary.data();
+            values[3] = dummy_nuclseq.data();
+
+            HeapTuple tuple = BuildTupleFromCStrings(attr_input_meta, values);
+            tuplestore_puttuple(ret_tupstore, tuple);
+            heap_freetuple(tuple);
+        }
+    });
 
     SPI_finish();
 
