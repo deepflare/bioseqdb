@@ -254,6 +254,10 @@ HeapTuple build_tuple_bwa(std::optional<std::string_view> query_id_view, const A
     std::string is_secondary = show(match.is_secondary);
     std::string cigar = show(match.cigar);
     std::string score = show(match.score);
+    std::string internal_ref_begin = show(match.internal_ref_begin);
+    std::string internal_ref_end = show(match.internal_ref_end);
+    std::string internal_query_begin = show(match.internal_query_begin);
+    std::string internal_query_end = show(match.internal_query_end);
 
     char* values[] = {
         ref_id.data(),
@@ -262,6 +266,10 @@ HeapTuple build_tuple_bwa(std::optional<std::string_view> query_id_view, const A
         is_secondary.data(),
         cigar.data(),
         score.data(),
+        internal_ref_begin.data(),
+        internal_ref_end.data(),
+        internal_query_begin.data(),
+        internal_query_end.data(),
         nullptr
     };
 
@@ -290,7 +298,7 @@ Datum nuclseq_search_bwa(PG_FUNCTION_ARGS) {
     TupleDesc ret_tupdest = get_retval_tupledesc(fcinfo);
     
     std::string sql = build_fetch_query(table_name, id_col_name, seq_col_name);
-    Oid nuclseq_oid = TupleDescAttr(ret_tupdest, 6)->atttypid;
+    Oid nuclseq_oid = TupleDescAttr(ret_tupdest, 10)->atttypid;
     BioseqdbBWA bwa = bwa_index_from_query(sql, nuclseq_oid);
     SPI_finish();
 
@@ -331,7 +339,7 @@ Datum nuclseq_multi_search_bwa(PG_FUNCTION_ARGS) {
 
     TupleDesc ret_tupdest = get_retval_tupledesc(fcinfo);
     std::string isql = build_fetch_query(table_name, id_col_name, seq_col_name);
-    Oid nuclseq_oid = TupleDescAttr(ret_tupdest, 6)->atttypid;
+    Oid nuclseq_oid = TupleDescAttr(ret_tupdest, 10)->atttypid;
     BioseqdbBWA bwa = bwa_index_from_query(isql, nuclseq_oid);
     Tuplestorestate* ret_tupstore = create_tuplestore(rsi, ret_tupdest);
     AttInMetadata* attr_input_meta = TupleDescGetAttInMetadata(ret_tupdest);

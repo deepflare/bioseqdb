@@ -26,6 +26,10 @@ struct AlignMatch {
     bool is_secondary;
     std::string cigar;
     int score;
+    int64_t internal_ref_begin;
+    int64_t internal_ref_end;
+    int internal_query_begin;
+    int internal_query_end;
 };
 
 struct BioseqdbBWA {

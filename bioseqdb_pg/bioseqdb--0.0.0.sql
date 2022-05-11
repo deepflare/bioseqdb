@@ -39,6 +39,10 @@ CREATE TYPE bwa_result AS (
     is_secondary BOOLEAN,
     cigar TEXT,
     score INTEGER,
+    internal_ref_begin INTEGER,
+    internal_ref_end INTEGER,
+    internal_query_begin INTEGER,
+    internal_query_end INTEGER,
     dummy_nuclseq NUCLSEQ
 );
 

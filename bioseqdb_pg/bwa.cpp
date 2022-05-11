@@ -135,6 +135,10 @@ std::vector<AlignMatch> BioseqdbBWA::align_sequence(std::string_view read_nucleo
             .is_secondary = (a.flag & BAM_FSECONDARY) != 0,
             .cigar = cigar_compressed_to_string(a.cigar, a.n_cigar),
             .score = a.score,
+            .internal_ref_begin = ar.a[i].rb,
+            .internal_ref_end = ar.a[i].re,
+            .internal_query_begin = ar.a[i].qb,
+            .internal_query_end = ar.a[i].qe,
         });
 
 //        if (ar.a[i].secondary >= 0 && (keep_sec_with_frac_of_primary_score < 0 || keep_sec_with_frac_of_primary_score > 1))
