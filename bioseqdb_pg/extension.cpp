@@ -332,7 +332,7 @@ Datum nuclseq_multi_search_bwa(PG_FUNCTION_ARGS) {
     Tuplestorestate* ret_tupstore = create_tuplestore(rsi, ret_tupdest);
     AttInMetadata* attr_input_meta = TupleDescGetAttInMetadata(ret_tupdest);
 
-    std::string qsql = build_fetch_query(table_name, id_col_name, seq_col_name);
+    std::string qsql = build_fetch_query(query_table_name, id_query_col_name, seq_query_col_name);
     iterate_nuclseq_table(qsql, nuclseq_oid, [&](auto id, auto nuclseq){
         std::vector<AlignMatch> aligns = bwa.align_sequence(nuclseq, hardclip);
 
