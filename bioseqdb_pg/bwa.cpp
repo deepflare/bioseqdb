@@ -17,10 +17,8 @@ inline namespace {
 std::string cigar_compressed_to_string(const uint32_t *raw, int len) {
     std::string cigar;
     for (int i=0; i<len; ++i) {
-        char op_kind = "MIDSH"[raw[i] & ((1 << 4) - 1)];
-        uint32_t op_len = raw[i] >> 4;
-        cigar += std::to_string(op_len);
-        cigar += op_kind;
+        cigar += std::to_string(bam_cigar_oplen(raw[i]));
+        cigar += bam_cigar_opchr(raw[i]);
     }
     return cigar;
 }
