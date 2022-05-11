@@ -21,7 +21,8 @@ struct UnalignSequence {
 };
 
 struct AlignMatch {
-    int reference_id;
+    int ref_id_index;
+    bool is_primary;
     bool is_secondary;
 };
 
@@ -42,8 +43,6 @@ struct BioseqdbBWA {
     void build_index(const std::vector<UnalignSequence>& v);
 
     std::vector<AlignMatch> align_sequence(std::string_view read_nucleotides, bool hardclip) const;
-
-private:
 
     // Store the options in memory
     mem_opt_t * memopt;

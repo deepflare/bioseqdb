@@ -6,6 +6,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <optional>
 
 extern "C" {
 #include <postgres.h>
@@ -246,6 +247,23 @@ Tuplestorestate* create_tuplestore(ReturnSetInfo* rsi, TupleDesc& tupledesc) {
     return tupstore;
 }
 
+HeapTuple build_tuple_bwa(std::optional<std::string_view> query_id_view, const AlignMatch& match, const BioseqdbBWA& bwa, AttInMetadata* att_meta) {
+    std::string ref_id = show(bwa.idx->bns->anns[match.ref_id_index].name);
+    std::optional<std::string> query_id = query_id_view.has_value() ? std::optional(show(std::string(*query_id_view))) : std::nullopt;
+    std::string is_primary = show(match.is_primary);
+    std::string is_secondary = show(match.is_secondary);
+
+    char* values[] = {
+        ref_id.data(),
+        query_id.has_value() ? query_id->data() : nullptr,
+        is_primary.data(),
+        is_secondary.data(),
+        nullptr
+    };
+
+    return BuildTupleFromCStrings(att_meta, values);
+}
+
 }
 
 extern "C" {
@@ -268,7 +286,7 @@ Datum nuclseq_search_bwa(PG_FUNCTION_ARGS) {
     TupleDesc ret_tupdest = get_retval_tupledesc(fcinfo);
     
     std::string sql = build_fetch_query(table_name, id_col_name, seq_col_name);
-    Oid nuclseq_oid = TupleDescAttr(ret_tupdest, 2)->atttypid;
+    Oid nuclseq_oid = TupleDescAttr(ret_tupdest, 4)->atttypid;
     BioseqdbBWA bwa = bwa_index_from_query(sql, nuclseq_oid);
     SPI_finish();
 
@@ -278,16 +296,7 @@ Datum nuclseq_search_bwa(PG_FUNCTION_ARGS) {
     std::vector<AlignMatch> aligns = bwa.align_sequence(nucls, hardclip);
 
     for (AlignMatch& row : aligns) {
-        std::string reference_id = show(row.reference_id);
-        std::string is_secondary = show(row.is_secondary);
-        std::string dummy_nuclseq = show("");
-
-        char* values[3];
-        values[0] = reference_id.data();
-        values[1] = is_secondary.data();
-        values[2] = dummy_nuclseq.data();
-
-        HeapTuple tuple = BuildTupleFromCStrings(attr_input_meta, values);
+        HeapTuple tuple = build_tuple_bwa(std::nullopt, row, bwa, attr_input_meta);
         tuplestore_puttuple(ret_tupstore, tuple);
         heap_freetuple(tuple);
     }
@@ -318,7 +327,7 @@ Datum nuclseq_multi_search_bwa(PG_FUNCTION_ARGS) {
 
     TupleDesc ret_tupdest = get_retval_tupledesc(fcinfo);
     std::string isql = build_fetch_query(table_name, id_col_name, seq_col_name);
-    Oid nuclseq_oid = TupleDescAttr(ret_tupdest, 3)->atttypid;
+    Oid nuclseq_oid = TupleDescAttr(ret_tupdest, 4)->atttypid;
     BioseqdbBWA bwa = bwa_index_from_query(isql, nuclseq_oid);
     Tuplestorestate* ret_tupstore = create_tuplestore(rsi, ret_tupdest);
     AttInMetadata* attr_input_meta = TupleDescGetAttInMetadata(ret_tupdest);
@@ -328,18 +337,7 @@ Datum nuclseq_multi_search_bwa(PG_FUNCTION_ARGS) {
         std::vector<AlignMatch> aligns = bwa.align_sequence(nuclseq, hardclip);
 
         for (AlignMatch& row : aligns) {
-            std::string reference_id = show(row.reference_id);
-            std::string id_query = show(id);
-            std::string is_secondary = show(row.is_secondary);
-            std::string dummy_nuclseq = show("");
-
-            char* values[4];
-            values[0] = reference_id.data();
-            values[1] = id_query.data();
-            values[2] = is_secondary.data();
-            values[3] = dummy_nuclseq.data();
-
-            HeapTuple tuple = BuildTupleFromCStrings(attr_input_meta, values);
+            HeapTuple tuple = build_tuple_bwa(id, row, bwa, attr_input_meta);
             tuplestore_puttuple(ret_tupstore, tuple);
             heap_freetuple(tuple);
         }

@@ -5,6 +5,8 @@
 #include <sstream>
 #include <stdexcept>
 
+#include <htslib/htslib/sam.h>
+
 //#define DEBUG_BWATOOLS 1
 
 #define _set_pac(pac, l, c) ((pac)[(l)>>2] |= (c)<<((~(l)&3)<<1))
@@ -111,10 +113,11 @@ std::vector<AlignMatch> BioseqdbBWA::align_sequence(std::string_view read_nucleo
     //size_t num_secondary = 0;
     // loop through the hits
     for (size_t i = 0; i < ar.n; ++i) {
-
+        mem_aln_t a = mem_reg2aln(memopt, idx->bns, idx->pac, read_nucleotides.length(), read_nucleotides.data(), &ar.a[i]);
         matches.push_back({
-            .reference_id = ar.a[i].rid,
-            .is_secondary = (bool) ar.a[i].secondary,
+            .ref_id_index = ar.a[i].rid,
+            .is_primary = (a.flag & BAM_FSECONDARY) == 0,
+            .is_secondary = (a.flag & BAM_FSECONDARY) != 0,
         });
 
 //        if (ar.a[i].secondary >= 0 && (keep_sec_with_frac_of_primary_score < 0 || keep_sec_with_frac_of_primary_score > 1))
