@@ -24,6 +24,7 @@ struct AlignMatch {
     int ref_id_index;
     bool is_primary;
     bool is_secondary;
+    std::string cigar;
 };
 
 struct BioseqdbBWA {

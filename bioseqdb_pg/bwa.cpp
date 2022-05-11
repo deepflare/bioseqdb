@@ -12,6 +12,21 @@
 #define _set_pac(pac, l, c) ((pac)[(l)>>2] |= (c)<<((~(l)&3)<<1))
 #define _get_pac(pac, l) ((pac)[(l)>>2]>>((~(l)&3)<<1)&3)
 
+inline namespace {
+
+std::string cigar_compressed_to_string(const uint32_t *raw, int len) {
+    std::string cigar;
+    for (int i=0; i<len; ++i) {
+        char op_kind = "MIDSH"[raw[i] & ((1 << 4) - 1)];
+        uint32_t op_len = raw[i] >> 4;
+        cigar += std::to_string(op_len);
+        cigar += op_kind;
+    }
+    return cigar;
+}
+
+}
+
 void BioseqdbBWA::build_index(const std::vector<UnalignSequence>& v) {
 
     if (!v.size())
@@ -118,6 +133,7 @@ std::vector<AlignMatch> BioseqdbBWA::align_sequence(std::string_view read_nucleo
             .ref_id_index = ar.a[i].rid,
             .is_primary = (a.flag & BAM_FSECONDARY) == 0,
             .is_secondary = (a.flag & BAM_FSECONDARY) != 0,
+            .cigar = cigar_compressed_to_string(a.cigar, a.n_cigar),
         });
 
 //        if (ar.a[i].secondary >= 0 && (keep_sec_with_frac_of_primary_score < 0 || keep_sec_with_frac_of_primary_score > 1))
