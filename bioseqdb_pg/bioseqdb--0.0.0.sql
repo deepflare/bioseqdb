@@ -38,6 +38,7 @@ CREATE TYPE bwa_result AS (
     is_primary BOOLEAN,
     is_secondary BOOLEAN,
     cigar TEXT,
+    score INTEGER,
     dummy_nuclseq NUCLSEQ
 );
 

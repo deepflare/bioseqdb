@@ -25,6 +25,7 @@ struct AlignMatch {
     bool is_primary;
     bool is_secondary;
     std::string cigar;
+    int score;
 };
 
 struct BioseqdbBWA {
