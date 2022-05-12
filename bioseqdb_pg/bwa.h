@@ -32,18 +32,12 @@ struct BwaMatch {
 
 class BwaIndex {
 public:
-    BwaIndex();
-
+    explicit BwaIndex(const std::vector<BwaSequence>& ref_seqs);
     ~BwaIndex();
 
-    void build_index(const std::vector<BwaSequence>& v);
-
-    std::vector<BwaMatch> align_sequence(std::string_view read_nucleotides) const;
+    std::vector<BwaMatch> align_sequence(std::string_view query) const;
 
 private:
-    // Store the options in memory
-    mem_opt_t * memopt;
-
-    // hold the full index structure
-    bwaidx_t* idx;
+    bwaidx_t* index;
+    mem_opt_t* options;
 };

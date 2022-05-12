@@ -156,27 +156,10 @@ std::string cigar_compressed_to_string(const uint32_t *raw, int len) {
 
 }
 
-BwaIndex::BwaIndex() {
-    idx = nullptr;
-    memopt = mem_opt_init();
-}
-
-BwaIndex::~BwaIndex() {
-    // TODO: Free idx->bns, hitting a double free right now.
-    if (idx)
-        bwa_idx_destroy(idx);
-    if (memopt)
-        free(memopt);
-}
-
-void BwaIndex::build_index(const std::vector<BwaSequence>& ref_seqs) {
-    assert(ref_seqs.size() > 0);
+BwaIndex::BwaIndex(const std::vector<BwaSequence>& ref_seqs): index(nullptr), options(mem_opt_init()) {
+    assert(!ref_seqs.empty());
     for (auto&& ref_seq : ref_seqs)
         assert(!(ref_seq.id.empty() || ref_seq.seq.empty()));
-    assert(idx == nullptr);
-
-    // allocate memory for idx
-    idx = (bwaidx_t*)calloc(1, sizeof(bwaidx_t));;
 
     CompressedReference ref_compressed = compress_reference(ref_seqs);
 
@@ -184,42 +167,41 @@ void BwaIndex::build_index(const std::vector<BwaSequence>& ref_seqs) {
     for (auto&& ref_seq : ref_seqs)
         tlen += ref_seq.seq.length();
 
-#ifdef DEBUG_BWATOOLS
-    std::cerr << "ref seq length: " << tlen << std::endl;
-#endif
-
-    // make the bwt
-    bwt_t *bwt;
-    bwt = seqlib_bwt_pac2bwt(ref_compressed.pac_bwa.data(), tlen*2); // *2 for fwd and rev
+    bwt_t *bwt = seqlib_bwt_pac2bwt(ref_compressed.pac_bwa.data(), tlen*2); // *2 for fwd and rev
     bwt_bwtupdate_core(bwt);
-
-    // construct sa from bwt and occ. adds it to bwt struct
     bwt_cal_sa(bwt, 32);
     bwt_gen_cnt_table(bwt);
 
-    idx->bwt = bwt;
-    idx->bns = ref_compressed.bns;
-    idx->pac = (uint8_t*) malloc(ref_compressed.pac_forward.size());
-    std::copy(ref_compressed.pac_forward.begin(), ref_compressed.pac_forward.end(), idx->pac);
+    index = (bwaidx_t*) calloc(1, sizeof(bwaidx_t));
+    index->bwt = bwt;
+    index->bns = ref_compressed.bns;
+    index->pac = (uint8_t*) malloc(ref_compressed.pac_forward.size());
+    std::copy(ref_compressed.pac_forward.begin(), ref_compressed.pac_forward.end(), index->pac);
 }
 
-std::vector<BwaMatch> BwaIndex::align_sequence(std::string_view read_nucleotides) const {
-    assert(idx != nullptr);
+BwaIndex::~BwaIndex() {
+    // TODO: Free index->bns, hitting a double free right now.
+    if (index)
+        bwa_idx_destroy(index);
+    if (options)
+        free(options);
+}
 
-    mem_alnreg_v ar = mem_align1(memopt, idx->bwt, idx->bns, idx->pac, read_nucleotides.length(), read_nucleotides.data()); // get all the hits (was c_str())
+std::vector<BwaMatch> BwaIndex::align_sequence(std::string_view query) const {
+    mem_alnreg_v ar = mem_align1(options, index->bwt, index->bns, index->pac, query.length(), query.data()); // get all the hits (was c_str())
 
     // TODO: Revert the CIGAR string when the match is reversed?
     // TOOD: Free memory.
 
     std::vector<BwaMatch> matches;
     for (mem_alnreg_t* alignment = ar.a; alignment != ar.a + ar.n; ++alignment) {
-        mem_aln_t a = mem_reg2aln(memopt, idx->bns, idx->pac, read_nucleotides.length(), read_nucleotides.data(), alignment);
+        mem_aln_t a = mem_reg2aln(options, index->bns, index->pac, query.length(), query.data(), alignment);
         matches.push_back({
-            .ref_id = std::string(idx->bns->anns[alignment->rid].name),
+            .ref_id = std::string(index->bns->anns[alignment->rid].name),
             .ref_match_begin = alignment->rb,
             .ref_match_end = alignment->re,
             .ref_match_len = alignment->re - alignment->rb,
-            .query_subseq = std::string(read_nucleotides.substr(alignment->qb, alignment->qe - alignment->qb)),
+            .query_subseq = std::string(query.substr(alignment->qb, alignment->qe - alignment->qb)),
             .query_match_begin = alignment->qb,
             .query_match_end = alignment->qe,
             .query_match_len = alignment->qe - alignment->qb,

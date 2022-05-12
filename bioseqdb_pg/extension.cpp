@@ -196,12 +196,11 @@ Portal iterate_nuclseq_table(const std::string &sql, Oid nuclseq_oid, F f) {
 
 BwaIndex bwa_index_from_query(const std::string& sql, Oid nuclseq_oid) {
     std::vector<BwaSequence> usv;
-    BwaIndex bwa;
     Portal portal = iterate_nuclseq_table(sql, nuclseq_oid, [&](auto id, auto seq){
         // TODO: useless copying
         usv.push_back({id, seq});
     });
-    bwa.build_index(usv);
+    BwaIndex bwa(usv);
     SPI_cursor_close(portal);
 
     return bwa;
