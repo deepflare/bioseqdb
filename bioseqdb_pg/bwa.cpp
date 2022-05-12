@@ -157,26 +157,11 @@ std::string cigar_compressed_to_string(const uint32_t *raw, int len) {
     return cigar;
 }
 
-std::string_view slice_match(std::string_view nucleotides, const uint32_t *cigar_raw, int cigar_len) {
-    size_t start = 0;
-    size_t len = 0;
-    // Skip first N block, then use bam_cigar_type to check whether further blocks use seq from the query to
-    // calculate the length of the match in the queried sequence.
-    for (int i = 0; i < cigar_len; ++i) {
-        if (i == 0 && bam_cigar_op(cigar_raw[i]) == BAM_CREF_SKIP)
-            start = bam_cigar_oplen(cigar_raw[i]);
-        else if (bam_cigar_type(bam_cigar_op(cigar_raw[i])) & 1)
-            len += bam_cigar_oplen(cigar_raw[i]);
-    }
-    return nucleotides.substr(start, len);
-}
-
 }
 
 BwaIndex::BwaIndex() {
     idx = nullptr;
     memopt = mem_opt_init();
-    memopt->flag |= MEM_F_SOFTCLIP;
 }
 
 BwaIndex::~BwaIndex() {
@@ -227,6 +212,7 @@ std::vector<BwaMatch> BwaIndex::align_sequence(std::string_view read_nucleotides
 
     mem_alnreg_v ar = mem_align1(memopt, idx->bwt, idx->bns, idx->pac, read_nucleotides.length(), read_nucleotides.data()); // get all the hits (was c_str())
 
+    // TODO: Revert the CIGAR string when the match is reversed?
     // TOOD: Free memory.
 
     std::vector<BwaMatch> matches;
@@ -237,7 +223,7 @@ std::vector<BwaMatch> BwaIndex::align_sequence(std::string_view read_nucleotides
             .ref_match_begin = alignment->rb,
             .ref_match_end = alignment->re,
             .ref_match_len = alignment->re - alignment->rb,
-            .query_subseq = std::string(slice_match(read_nucleotides, a.cigar, a.n_cigar)),
+            .query_subseq = std::string(read_nucleotides.substr(alignment->qb, alignment->qe - alignment->qb)),
             .query_match_begin = alignment->qb,
             .query_match_end = alignment->qe,
             .query_match_len = alignment->qe - alignment->qb,
@@ -249,63 +235,4 @@ std::vector<BwaMatch> BwaIndex::align_sequence(std::string_view read_nucleotides
         });
     }
     return matches;
-
-//        // if alignment is reverse, set it
-//        if (a[i].is_rev)
-//            b.b->core.flag |= BAM_FREVERSE;
-//
-//        // allocate the cigar. Reverse if aligned to neg strand, since mem_aln_t stores
-//        // cigars relative to referemce string oreiatnion, not forward alignment
-//        memcpy(b.b->data + b.b->core.l_qname, (uint8_t*)a[i].cigar, a[i].n_cigar<<2);
-//
-//        // convert N to S or H
-//        int new_val = hardclip ? BAM_CHARD_CLIP : BAM_CSOFT_CLIP;
-//        uint32_t * cigr = bam_get_cigar(b.b);
-//        for (int k = 0; k < b.b->core.n_cigar; ++k) {
-//            if ( (cigr[k] & BAM_CIGAR_MASK) == BAM_CREF_SKIP) {
-//                cigr[k] &= ~BAM_CIGAR_MASK;
-//                cigr[k] |= new_val;
-//            }
-//        }
-//
-//        int slen = new_seq.length();
-//        int j = 0;
-//        if (a[i].is_rev) {
-//            for (int i = slen-1; i >= 0; --i) {
-//
-//                // bad idea but works for now
-//                // this is REV COMP things
-//                uint8_t base = 15;
-//                if (new_seq.at(i) == 'T')
-//                    base = 1;
-//                else if (new_seq.at(i) == 'G')
-//                    base = 2;
-//                else if (new_seq.at(i) == 'C')
-//                    base = 4;
-//                else if (new_seq.at(i) == 'A')
-//                    base = 8;
-//
-//                m_bases[j >> 1] &= ~(0xF << ((~j & 1) << 2));   ///< zero out previous 4-bit base encoding
-//                m_bases[j >> 1] |= base << ((~j & 1) << 2);  ///< insert new 4-bit base encoding
-//                ++j;
-//            }
-//        } else {
-//            for (int i = 0; i < slen; ++i) {
-//                // bad idea but works for now
-//                uint8_t base = 15;
-//                if (new_seq.at(i) == 'A')
-//                    base = 1;
-//                else if (new_seq.at(i) == 'C')
-//                    base = 2;
-//                else if (new_seq.at(i) == 'G')
-//                    base = 4;
-//                else if (new_seq.at(i) == 'T')
-//                    base = 8;
-//
-//                m_bases[i >> 1] &= ~(0xF << ((~i & 1) << 2));   ///< zero out previous 4-bit base encoding
-//                m_bases[i >> 1] |= base << ((~i & 1) << 2);  ///< insert new 4-bit base encoding
-//
-//            }
-//        }
-//
 }
