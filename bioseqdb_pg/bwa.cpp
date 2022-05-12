@@ -227,8 +227,9 @@ std::string cigar_compressed_to_string(const uint32_t *raw, int len) {
 
 }
 
-BwaIndex::BwaIndex(const std::vector<BwaSequence>& refs): index(nullptr), options(mem_opt_init()) {
-    assert(!refs.empty());
+BwaIndex::BwaIndex(const std::vector<BwaSequence>& refs): index(nullptr), options(mem_opt_init()), is_empty(refs.empty()) {
+    if (is_empty)
+        return;
     for (auto&& ref : refs)
         assert(!(ref.id.empty() || ref.seq.empty()));
 
@@ -252,6 +253,8 @@ BwaIndex::~BwaIndex() {
 }
 
 std::vector<BwaMatch> BwaIndex::align_sequence(std::string_view query) const {
+    if (is_empty)
+        return {};
     mem_alnreg_v aligns = mem_align1(options, index->bwt, index->bns, index->pac, query.length(), query.data()); // get all the hits (was c_str())
     std::vector<BwaMatch> matches;
     for (mem_alnreg_t* align = aligns.a; align != aligns.a + aligns.n; ++align) {

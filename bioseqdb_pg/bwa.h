@@ -41,4 +41,5 @@ public:
 private:
     bwaidx_t* index;
     mem_opt_t* options;
+    bool is_empty;
 };
