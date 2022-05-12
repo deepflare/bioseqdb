@@ -251,10 +251,12 @@ HeapTuple build_tuple_bwa(std::optional<std::string_view> query_id_view, const B
     std::string ref_id = show(match.ref_id);
     std::string ref_match_begin = show(match.ref_match_begin);
     std::string ref_match_end = show(match.ref_match_end);
+    std::string ref_match_len = show(match.ref_match_len);
     std::optional<std::string> query_id = query_id_view.has_value() ? std::optional(show(std::string(*query_id_view))) : std::nullopt;
     std::string query_subseq = show(match.query_subseq);
     std::string query_match_begin = show(match.query_match_begin);
     std::string query_match_end = show(match.query_match_end);
+    std::string query_match_len = show(match.query_match_len);
     std::string is_primary = show(match.is_primary);
     std::string is_secondary = show(match.is_secondary);
     std::string is_reverse = show(match.is_reverse);
@@ -265,10 +267,12 @@ HeapTuple build_tuple_bwa(std::optional<std::string_view> query_id_view, const B
         ref_id.data(),
         ref_match_begin.data(),
         ref_match_end.data(),
+        ref_match_len.data(),
         query_id.has_value() ? query_id->data() : nullptr,
         query_subseq.data(),
         query_match_begin.data(),
         query_match_end.data(),
+        query_match_len.data(),
         is_primary.data(),
         is_secondary.data(),
         is_reverse.data(),
@@ -300,7 +304,7 @@ Datum nuclseq_search_bwa(PG_FUNCTION_ARGS) {
     TupleDesc ret_tupdest = get_retval_tupledesc(fcinfo);
     
     std::string sql = build_fetch_query(table_name, id_col_name, seq_col_name);
-    Oid nuclseq_oid = TupleDescAttr(ret_tupdest, 4)->atttypid;
+    Oid nuclseq_oid = TupleDescAttr(ret_tupdest, 5)->atttypid;
     BwaIndex bwa = bwa_index_from_query(sql, nuclseq_oid);
     SPI_finish();
 
@@ -339,7 +343,7 @@ Datum nuclseq_multi_search_bwa(PG_FUNCTION_ARGS) {
 
     TupleDesc ret_tupdest = get_retval_tupledesc(fcinfo);
     std::string isql = build_fetch_query(table_name, id_col_name, seq_col_name);
-    Oid nuclseq_oid = TupleDescAttr(ret_tupdest, 4)->atttypid;
+    Oid nuclseq_oid = TupleDescAttr(ret_tupdest, 5)->atttypid;
     BwaIndex bwa = bwa_index_from_query(isql, nuclseq_oid);
     Tuplestorestate* ret_tupstore = create_tuplestore(rsi, ret_tupdest);
     AttInMetadata* attr_input_meta = TupleDescGetAttInMetadata(ret_tupdest);
