@@ -16,7 +16,7 @@ inline namespace {
 
 struct CompressedReference {
     std::vector<uint8_t> pac_bwa;
-    uint8_t* pac_forward;
+    std::vector<uint8_t> pac_forward;
     bntseq_t* bns;
 };
 
@@ -27,7 +27,7 @@ char* make_c_string(std::string_view str_view) {
     return c_str;
 }
 
-uint8_t* seqlib_add1(const BwaSequence& seq, bntseq_t *bns, uint8_t *pac, int64_t *m_pac, int *m_seqs, int *m_holes, bntamb1_t **q)
+void seqlib_add1(const BwaSequence& seq, bntseq_t *bns, std::vector<uint8_t>& pac, int64_t *m_pac, int *m_seqs, int *m_holes, bntamb1_t **q)
 {
     bntann1_t *p;
     int lasts;
@@ -61,21 +61,17 @@ uint8_t* seqlib_add1(const BwaSequence& seq, bntseq_t *bns, uint8_t *pac, int64_
             if (c >= 4) c = lrand48()&3;
             if (bns->l_pac == *m_pac) { // double the pac size
                 *m_pac <<= 1;
-                pac = (uint8_t*)realloc(pac, *m_pac/4);
-                memset(pac + bns->l_pac/4, 0, (*m_pac - bns->l_pac)/4);
+                pac.resize(*m_pac / 4, 0);
             }
             _set_pac(pac, bns->l_pac, c);
             ++bns->l_pac;
         }
     }
     ++bns->n_seqs;
-
-    return pac;
 }
 
 CompressedReference compress_reference(const std::vector<BwaSequence>& ref) {
     bntseq_t * bns = (bntseq_t*)calloc(1, sizeof(bntseq_t));
-    uint8_t *pac = 0;
     int32_t m_seqs, m_holes;
     int64_t m_pac;
     bntamb1_t *q;
@@ -84,13 +80,13 @@ CompressedReference compress_reference(const std::vector<BwaSequence>& ref) {
     m_seqs = m_holes = 8; m_pac = 0x10000;
     bns->anns = (bntann1_t*)calloc(m_seqs, sizeof(bntann1_t));
     bns->ambs = (bntamb1_t*)calloc(m_holes, sizeof(bntamb1_t));
-    pac = (uint8_t*) calloc(m_pac/4, 1);
+    std::vector<uint8_t> pac(m_pac / 4, 0);
     q = bns->ambs;
 
     for (size_t k = 0; k < ref.size(); ++k)
-        pac = seqlib_add1(ref[k], bns, pac, &m_pac, &m_seqs, &m_holes, &q);
+        seqlib_add1(ref[k], bns, pac, &m_pac, &m_seqs, &m_holes, &q);
 
-    std::vector<uint8_t> pac_bwa(pac, pac + m_pac);
+    std::vector<uint8_t> pac_bwa = pac;
     int64_t m_pac_bwa = (bns->l_pac * 2 + 3) / 4 * 4;
     pac_bwa.resize(m_pac_bwa / 4);
     std::fill_n(pac_bwa.begin() + (bns->l_pac + 3) / 4, (m_pac_bwa - (bns->l_pac + 3) / 4 * 4) / 4, 0);
@@ -196,11 +192,10 @@ void BwaIndex::build_index(const std::vector<BwaSequence>& ref_seqs) {
     bwt_cal_sa(bwt, 32);
     bwt_gen_cnt_table(bwt);
 
-    // make the in-memory idx struct
     idx->bwt = bwt;
     idx->bns = ref_compressed.bns;
-    idx->pac = ref_compressed.pac_forward;
-
+    idx->pac = (uint8_t*) malloc(ref_compressed.pac_forward.size());
+    std::copy(ref_compressed.pac_forward.begin(), ref_compressed.pac_forward.end(), idx->pac);
 }
 
 std::vector<BwaMatch> BwaIndex::align_sequence(std::string_view read_nucleotides) const {
