@@ -193,24 +193,6 @@ bwt_t *seqlib_bwt_pac2bwt(const uint8_t *pac, int bwt_seq_lenr)
     return bwt;
 }
 
-// modified from bwa (heng li)
-bntann1_t* seqlib_add_to_anns(std::string_view name, std::string_view seq, bntann1_t* ann, size_t offset)
-{
-
-    ann->offset = offset;
-    ann->name = (char*)malloc(name.length()+1); // +1 for \0
-    strncpy(ann->name, name.data(), name.length());
-    ann->name[name.length()] = '\0';
-    ann->anno = (char*)malloc(7);
-    strcpy(ann->anno, "(null)\0");
-    ann->len = seq.length();
-    ann->n_ambs = 0; // number of "holes"
-    ann->gi = 0; // gi?
-    ann->is_alt = 0;
-
-    return ann;
-}
-
 std::string cigar_compressed_to_string(const uint32_t *raw, int len) {
     std::string cigar;
     for (int i = 0; i < len; ++i) {
@@ -243,6 +225,7 @@ BwaIndex::BwaIndex() {
 }
 
 BwaIndex::~BwaIndex() {
+    // TODO: Free idx->bns, hitting a double free right now.
     if (idx)
         bwa_idx_destroy(idx);
     if (memopt)
@@ -259,7 +242,6 @@ void BwaIndex::build_index(const std::vector<BwaSequence>& ref_seqs) {
     idx = (bwaidx_t*)calloc(1, sizeof(bwaidx_t));;
 
     CompressedReference ref_compressed = compress_reference(ref_seqs);
-    bns_destroy(ref_compressed.bns);
 
     size_t tlen = 0;
     for (auto&& ref_seq : ref_seqs)
@@ -279,27 +261,9 @@ void BwaIndex::build_index(const std::vector<BwaSequence>& ref_seqs) {
     bwt_cal_sa(bwt, 32);
     bwt_gen_cnt_table(bwt);
 
-    // make the bns
-    bntseq_t * bns = (bntseq_t*) calloc(1, sizeof(bntseq_t));
-    bns->l_pac = tlen;
-    bns->n_seqs = ref_seqs.size();
-    bns->seed = 11;
-    bns->n_holes = 0;
-
-    // make the anns
-    bns->anns = (bntann1_t*)calloc(ref_seqs.size(), sizeof(bntann1_t));
-    size_t offset = 0;
-    for (size_t k = 0; k < ref_seqs.size(); ++k) {
-        seqlib_add_to_anns(ref_seqs[k].id, ref_seqs[k].seq, &bns->anns[k], offset);
-        offset += ref_seqs[k].seq.length();
-    }
-
-    //ambs is "holes", like N bases
-    bns->ambs = 0; //(bntamb1_t*)calloc(1, sizeof(bntamb1_t));
-
     // make the in-memory idx struct
     idx->bwt = bwt;
-    idx->bns = bns;
+    idx->bns = ref_compressed.bns;
     idx->pac = ref_compressed.pac_forward;
 
 }
