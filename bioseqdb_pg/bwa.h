@@ -1,15 +1,13 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
-#include <iostream>
-#include <algorithm>
-#include <memory>
 
 extern "C" {
 #include <bwa/bwamem.h>
 #include <bwa/kseq.h>
-int is_bwt(ubyte_t *T, int n);
 KSEQ_DECLARE(gzFile)
 }
 
@@ -33,18 +31,9 @@ struct BwaMatch {
 
 class BwaIndex {
 public:
-    BwaIndex() {
-        idx = nullptr;
-        memopt = mem_opt_init();
-        memopt->flag |= MEM_F_SOFTCLIP;
-    }
+    BwaIndex();
 
-    ~BwaIndex() {
-        if (idx)
-            bwa_idx_destroy(idx);
-        if (memopt)
-            free(memopt);
-    }
+    ~BwaIndex();
 
     void build_index(const std::vector<BwaSequence>& v);
 

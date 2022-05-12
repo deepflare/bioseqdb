@@ -1,10 +1,13 @@
 #include "bwa.h"
 
 #include <cstring>
-#include <iostream>
 #include <stdexcept>
 
 #include <htslib/htslib/sam.h>
+extern "C" {
+// Internal libbwa symbol, not exported through any of the headers.
+int is_bwt(ubyte_t *T, int n);
+}
 
 #define _set_pac(pac, l, c) ((pac)[(l)>>2] |= (c)<<((~(l)&3)<<1))
 #define _get_pac(pac, l) ((pac)[(l)>>2]>>((~(l)&3)<<1)&3)
@@ -34,6 +37,19 @@ std::string_view slice_match(std::string_view nucleotides, const uint32_t *cigar
     return nucleotides.substr(start, len);
 }
 
+}
+
+BwaIndex::BwaIndex() {
+    idx = nullptr;
+    memopt = mem_opt_init();
+    memopt->flag |= MEM_F_SOFTCLIP;
+}
+
+BwaIndex::~BwaIndex() {
+    if (idx)
+        bwa_idx_destroy(idx);
+    if (memopt)
+        free(memopt);
 }
 
 void BwaIndex::build_index(const std::vector<BwaSequence>& ref_seqs) {
