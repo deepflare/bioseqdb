@@ -91,22 +91,8 @@ CompressedReference compress_reference(const std::vector<BwaSequence>& ref) {
     pac = (uint8_t*) calloc(m_pac/4, 1);
     q = bns->ambs;
 
-    // move through the unaligned sequences
     for (size_t k = 0; k < ref.size(); ++k)
         pac = seqlib_add1(ref[k], bns, pac, &m_pac, &m_seqs, &m_holes, &q);
-
-//    if (!for_only)
-//    {
-        // add the reverse complemented sequence
-//        m_pac = (bns->l_pac * 2 + 3) / 4 * 4;
-//        pac = (uint8_t*)realloc(pac, m_pac/4);
-//        memset(pac + (bns->l_pac+3)/4, 0, (m_pac - (bns->l_pac+3)/4*4) / 4);
-//        for (l = bns->l_pac - 1; l >= 0; --l, ++bns->l_pac)
-//            _set_pac(pac, bns->l_pac, 3-_get_pac(pac, l));
-//    }
-//    {
-
-//    }
 
     std::vector<uint8_t> pac_bwa(pac, pac + m_pac);
     int64_t m_pac_bwa = (bns->l_pac * 2 + 3) / 4 * 4;
