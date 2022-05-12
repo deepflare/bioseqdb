@@ -28,10 +28,6 @@ public:
         set(n++, value);
     }
 
-    void reserve(size_t count) {
-        pac.reserve(count / 4);
-    }
-
     uint8_t* data() {
         return pac.data();
     }
@@ -62,60 +58,65 @@ char* make_c_string(std::string_view str_view) {
     return c_str;
 }
 
-void seqlib_add1(const BwaSequence& seq, bntseq_t *bns, PacVector& pac, int *m_seqs, int *m_holes, bntamb1_t **q)
-{
-    bntann1_t *p;
-    int lasts;
-    p = bns->anns + bns->n_seqs;
-    p->name = make_c_string(seq.id);
-    p->anno = make_c_string("(null)");
-    p->gi = 0;
-    p->len = seq.seq.length();
-    p->offset = (bns->n_seqs == 0)? 0 : (p-1)->offset + (p-1)->len;
-    p->n_ambs = 0;
-    for (size_t i = lasts = 0; i < seq.seq.length(); ++i) {
-        int c = nst_nt4_table[(int)seq.seq[i]];
-        if (c >= 4) { // N
-            if (lasts == seq.seq[i]) { // contiguous N
-                ++(*q)->len;
-            } else {
-                if (bns->n_holes == *m_holes) {
-                    (*m_holes) <<= 1;
-                    bns->ambs = (bntamb1_t*)realloc(bns->ambs, (*m_holes) * sizeof(bntamb1_t));
-                }
-                *q = bns->ambs + bns->n_holes;
-                (*q)->len = 1;
-                (*q)->offset = p->offset + i;
-                (*q)->amb = seq.seq[i];
-                ++p->n_ambs;
+void compress_reference_seq(const BwaSequence& ref, bntseq_t* bns, PacVector& pac, std::vector<bntamb1_t>& holes) {
+    bntann1_t& ann = bns->anns[bns->n_seqs];
+    ann.name = make_c_string(ref.id);
+    ann.anno = make_c_string("(null)");
+    ann.gi = 0;
+    ann.len = ref.seq.length();
+    ann.offset = bns->n_seqs == 0 ? 0 : bns->anns[bns->n_seqs - 1].offset + bns->anns[bns->n_seqs - 1].len;
+    ann.n_ambs = 0;
+
+    bntamb1_t* current_hole = nullptr;
+    char prev_char = 0;
+    for (char chr : ref.seq) {
+        // ACGT decode to 0123 respectively, N and unknown characters decode to 4, and minus decodes to 5. This encoding
+        // lets you efficiently compute the complement.
+        int c = nst_nt4_table[(int) chr];
+
+        if (c >= 4) {
+            if (prev_char == chr)
+                ++current_hole->len;
+            else {
+                holes.push_back({
+                    .offset = current_hole->offset,
+                    .len = 1,
+                    .amb = chr,
+                });
+                current_hole = &holes.back();
+                ++ann.n_ambs;
                 ++bns->n_holes;
             }
         }
-        lasts = seq.seq[i];
-        { // fill buffer
-            if (c >= 4) c = lrand48()&3;
-            pac.push_back(c);
-            ++bns->l_pac;
-        }
+
+        prev_char = chr;
+
+        if (c >= 4)
+            c = lrand48() & 3;
+        pac.push_back(c);
+        ++bns->l_pac;
     }
+
     ++bns->n_seqs;
 }
 
-CompressedReference compress_reference(const std::vector<BwaSequence>& ref) {
-    bntseq_t * bns = (bntseq_t*)calloc(1, sizeof(bntseq_t));
-    int32_t m_seqs, m_holes;
-    bntamb1_t *q;
+CompressedReference compress_reference(const std::vector<BwaSequence>& refs) {
+    bntseq_t * bns = (bntseq_t*) calloc(1, sizeof(bntseq_t));
+    // BWA encodes holes (unknown nucleotides) as a random valid nucleotide in its 2-bit encoding. This can produce
+    // nondeterministic results, so the RNG seed is fixed to 11 to prevent this.
+    bns->seed = 11;
+    bns->anns = (bntann1_t*) calloc(refs.size(), sizeof(bntann1_t));
 
-    bns->seed = 11; // fixed seed for random generator
-    m_seqs = m_holes = 8;
-    bns->anns = (bntann1_t*)calloc(m_seqs, sizeof(bntann1_t));
-    bns->ambs = (bntamb1_t*)calloc(m_holes, sizeof(bntamb1_t));
     PacVector pac;
-    pac.reserve(0x10000);
-    q = bns->ambs;
 
-    for (size_t k = 0; k < ref.size(); ++k)
-        seqlib_add1(ref[k], bns, pac, &m_seqs, &m_holes, &q);
+    std::vector<bntamb1_t> holes;
+    holes.reserve(8);
+
+    for (const BwaSequence& ref : refs)
+        compress_reference_seq(ref, bns, pac, holes);
+
+    bns->ambs = (bntamb1_t*) calloc(holes.size(), sizeof(bntamb1_t));
+    std::copy(holes.begin(), holes.end(), bns->ambs);
 
     PacVector pac_bwa = pac;
     for (int64_t l = bns->l_pac - 1; l >= 0; --l)
