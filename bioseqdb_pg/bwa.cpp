@@ -99,12 +99,12 @@ void compress_reference_seq(const BwaSequence& ref, bntseq_t* bns, PacVector& pa
     ann.n_ambs = 0;
 
     bntamb1_t* current_hole = nullptr;
-    char prev_char = 0;
+    char prev_chr = 0;
     for (char chr : ref.seq) {
         int nucl = nuclcode_from_char(chr);
 
         if (nucl >= 4) {
-            if (prev_char == chr)
+            if (prev_chr == chr)
                 ++current_hole->len;
             else {
                 holes.push_back({
@@ -118,7 +118,7 @@ void compress_reference_seq(const BwaSequence& ref, bntseq_t* bns, PacVector& pa
             }
         }
 
-        prev_char = chr;
+        prev_chr = chr;
 
         if (nucl >= 4)
             nucl = lrand48() & 3;
