@@ -34,6 +34,7 @@ CREATE FUNCTION nuclseq_complement(NUCLSEQ)
 
 CREATE TYPE bwa_result AS (
     ref_id INTEGER,
+    ref_subseq NUCLSEQ,
     ref_match_start INTEGER,
     ref_match_end INTEGER,
     ref_match_len INTEGER,

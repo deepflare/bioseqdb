@@ -248,6 +248,7 @@ Tuplestorestate* create_tuplestore(ReturnSetInfo* rsi, TupleDesc& tupledesc) {
 
 HeapTuple build_tuple_bwa(std::optional<std::string_view> query_id_view, const BwaMatch& match, AttInMetadata* att_meta) {
     std::string ref_id = show(match.ref_id);
+    std::string ref_subseq = show(match.ref_subseq);
     std::string ref_match_begin = show(match.ref_match_begin);
     std::string ref_match_end = show(match.ref_match_end);
     std::string ref_match_len = show(match.ref_match_len);
@@ -264,6 +265,7 @@ HeapTuple build_tuple_bwa(std::optional<std::string_view> query_id_view, const B
 
     char* values[] = {
         ref_id.data(),
+        ref_subseq.data(),
         ref_match_begin.data(),
         ref_match_end.data(),
         ref_match_len.data(),
@@ -303,7 +305,7 @@ Datum nuclseq_search_bwa(PG_FUNCTION_ARGS) {
     TupleDesc ret_tupdest = get_retval_tupledesc(fcinfo);
     
     std::string sql = build_fetch_query(table_name, id_col_name, seq_col_name);
-    Oid nuclseq_oid = TupleDescAttr(ret_tupdest, 5)->atttypid;
+    Oid nuclseq_oid = TupleDescAttr(ret_tupdest, 1)->atttypid;
     BwaIndex bwa = bwa_index_from_query(sql, nuclseq_oid);
     SPI_finish();
 
@@ -342,7 +344,7 @@ Datum nuclseq_multi_search_bwa(PG_FUNCTION_ARGS) {
 
     TupleDesc ret_tupdest = get_retval_tupledesc(fcinfo);
     std::string isql = build_fetch_query(table_name, id_col_name, seq_col_name);
-    Oid nuclseq_oid = TupleDescAttr(ret_tupdest, 5)->atttypid;
+    Oid nuclseq_oid = TupleDescAttr(ret_tupdest, 1)->atttypid;
     BwaIndex bwa = bwa_index_from_query(isql, nuclseq_oid);
     Tuplestorestate* ret_tupstore = create_tuplestore(rsi, ret_tupdest);
     AttInMetadata* attr_input_meta = TupleDescGetAttInMetadata(ret_tupdest);

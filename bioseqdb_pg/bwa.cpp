@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <iostream>
 
 #include <htslib/htslib/sam.h>
 extern "C" {
@@ -13,13 +14,9 @@ inline namespace {
 
 class PacVector {
 public:
-    uint8_t get(uint64_t index) const {
-        return pac[index >> 2] >> ((~index & 3) << 1) & 3;
-    }
+    uint8_t get(uint64_t index) const;
 
-    void set(uint64_t index, uint8_t value) {
-        pac[index >> 2] |= value << ((~index & 3) << 1);
-    }
+    void set(uint64_t index, uint8_t value);
 
     void push_back(uint8_t value) {
         if (n % 4 == 0)
@@ -57,6 +54,39 @@ char* make_c_string(std::string_view str_view) {
     return c_str;
 }
 
+uint8_t pac_raw_get(const uint8_t* pac, uint64_t index) {
+    return pac[index >> 2] >> ((~index & 3) << 1) & 3;
+}
+
+void pac_raw_set(uint8_t* pac, uint64_t index, uint8_t value) {
+    pac[index >> 2] |= value << ((~index & 3) << 1);
+}
+
+uint8_t PacVector::get(uint64_t index) const {
+    return pac_raw_get(pac.data(), index);
+}
+
+void PacVector::set(uint64_t index, uint8_t value) {
+    pac_raw_set(pac.data(), index, value);
+}
+
+char nuclcode_to_char(int nucl) {
+    if (nucl == 0)
+        return 'A';
+    else if (nucl == 1)
+        return 'C';
+    else if (nucl == 2)
+        return 'G';
+    else if (nucl == 3)
+        return 'T';
+    else
+        return 'N';
+}
+
+int nuclcode_from_char(char chr) {
+    return nst_nt4_table[(int) chr];
+}
+
 // BWA requires nucleotide sequences to be passed using 2-bit encoding, where 0, 1, 2 and 3 correspond to ACGT
 // respectively. Unknown nucleotides are represented by a random value, and description of groups of unknown values
 // ("holes") is passed as an additional parameter.
@@ -72,14 +102,14 @@ void compress_reference_seq(const BwaSequence& ref, bntseq_t* bns, PacVector& pa
     bntamb1_t* current_hole = nullptr;
     char prev_char = 0;
     for (char chr : ref.seq) {
-        int nucl = nst_nt4_table[(int) chr];
+        int nucl = nuclcode_from_char(chr);
 
         if (nucl >= 4) {
             if (prev_char == chr)
                 ++current_hole->len;
             else {
                 holes.push_back({
-                    .offset = current_hole->offset,
+                    .offset = bns->l_pac,
                     .len = 1,
                     .amb = chr,
                 });
@@ -173,6 +203,20 @@ bwt_t *seqlib_bwt_pac2bwt(const uint8_t *pac, int bwt_seq_lenr)
     return bwt;
 }
 
+std::string extract_reference_subseq(bwaidx_t* index, int64_t ref_begin, int64_t ref_end) {
+    std::string subseq(ref_end - ref_begin, '?');
+    for (int64_t i = 0; i < subseq.size(); ++i)
+        subseq[i] = nuclcode_to_char(pac_raw_get(index->pac, ref_begin + i));
+    // TODO: Use binary search to look for relevant holes.
+    for (bntamb1_t* hole = index->bns->ambs; hole != index->bns->ambs + index->bns->n_holes; ++hole) {
+        int64_t left_intersect = std::max(hole->offset, ref_begin);
+        int64_t right_intersect = std::min(hole->offset + hole->len, ref_end);
+        for (int64_t i = left_intersect; i < right_intersect; ++i)
+            subseq[i - ref_begin] = 'N';
+    }
+    return subseq;
+}
+
 std::string cigar_compressed_to_string(const uint32_t *raw, int len) {
     std::string cigar;
     for (int i = 0; i < len; ++i) {
@@ -212,11 +256,18 @@ std::vector<BwaMatch> BwaIndex::align_sequence(std::string_view query) const {
     mem_alnreg_v aligns = mem_align1(options, index->bwt, index->bns, index->pac, query.length(), query.data()); // get all the hits (was c_str())
     std::vector<BwaMatch> matches;
     for (mem_alnreg_t* align = aligns.a; align != aligns.a + aligns.n; ++align) {
+        // BWA returns the align->rid indicating which reference sequence was matched, but some fields refer to
+        // positions withing the concatenated sequence, rather than in the specific sequence. For example, you need to
+        // subtract ref_offset from align->rb and align->re to get positions relative to the original reference
+        // sequence.
+        // TODO: How do rb/re fields look in reverse matches?
+        int64_t ref_offset = index->bns->anns[align->rid].offset;
         mem_aln_t details = mem_reg2aln(options, index->bns, index->pac, query.length(), query.data(), align);
         matches.push_back({
             .ref_id = std::string_view(index->bns->anns[align->rid].name),
-            .ref_match_begin = align->rb,
-            .ref_match_end = align->re,
+            .ref_subseq = extract_reference_subseq(index, align->rb, align->re),
+            .ref_match_begin = align->rb - ref_offset,
+            .ref_match_end = align->re - ref_offset,
             .ref_match_len = align->re - align->rb,
             .query_subseq = query.substr(align->qb, align->qe - align->qb),
             .query_match_begin = align->qb,
