@@ -36,7 +36,7 @@ std::string_view slice_match(std::string_view nucleotides, const uint32_t *cigar
 
 }
 
-void BioseqdbBWA::build_index(const std::vector<UnalignSequence>& ref_seqs) {
+void BwaIndex::build_index(const std::vector<BwaSequence>& ref_seqs) {
     assert(ref_seqs.size() > 0);
     for (auto&& ref_seq : ref_seqs)
         assert(!(ref_seq.name.empty() || ref_seq.nucleotides.empty()));
@@ -94,14 +94,14 @@ void BioseqdbBWA::build_index(const std::vector<UnalignSequence>& ref_seqs) {
 
 }
 
-std::vector<AlignMatch> BioseqdbBWA::align_sequence(std::string_view read_nucleotides) const {
+std::vector<BwaMatch> BwaIndex::align_sequence(std::string_view read_nucleotides) const {
     assert(idx != nullptr);
 
     mem_alnreg_v ar = mem_align1(memopt, idx->bwt, idx->bns, idx->pac, read_nucleotides.length(), read_nucleotides.data()); // get all the hits (was c_str())
 
     // TOOD: Free memory.
 
-    std::vector<AlignMatch> matches;
+    std::vector<BwaMatch> matches;
     for (size_t i = 0; i < ar.n; ++i) {
         mem_aln_t a = mem_reg2aln(memopt, idx->bns, idx->pac, read_nucleotides.length(), read_nucleotides.data(), &ar.a[i]);
         matches.push_back({
@@ -180,7 +180,7 @@ std::vector<AlignMatch> BioseqdbBWA::align_sequence(std::string_view read_nucleo
 }
 
 // modified from bwa (heng li)
-uint8_t* BioseqdbBWA::seqlib_add1(const kseq_t *seq, bntseq_t *bns, uint8_t *pac, int64_t *m_pac, int *m_seqs, int *m_holes, bntamb1_t **q)
+uint8_t* BwaIndex::seqlib_add1(const kseq_t *seq, bntseq_t *bns, uint8_t *pac, int64_t *m_pac, int *m_seqs, int *m_holes, bntamb1_t **q)
 {
     bntann1_t *p;
     int lasts;
@@ -230,7 +230,7 @@ uint8_t* BioseqdbBWA::seqlib_add1(const kseq_t *seq, bntseq_t *bns, uint8_t *pac
 }
 
 // modified from bwa (heng li)
-uint8_t* BioseqdbBWA::seqlib_make_pac(const std::vector<UnalignSequence>& v, bool for_only)
+uint8_t* BwaIndex::seqlib_make_pac(const std::vector<BwaSequence>& v, bool for_only)
 {
 
     bntseq_t * bns = (bntseq_t*)calloc(1, sizeof(bntseq_t));
@@ -303,7 +303,7 @@ uint8_t* BioseqdbBWA::seqlib_make_pac(const std::vector<UnalignSequence>& v, boo
 }
 
 // modified from bwa (heng li)
-bwt_t *BioseqdbBWA::seqlib_bwt_pac2bwt(const uint8_t *pac, int bwt_seq_lenr)
+bwt_t *BwaIndex::seqlib_bwt_pac2bwt(const uint8_t *pac, int bwt_seq_lenr)
 {
 
     bwt_t *bwt;
@@ -342,7 +342,7 @@ bwt_t *BioseqdbBWA::seqlib_bwt_pac2bwt(const uint8_t *pac, int bwt_seq_lenr)
 }
 
 // modified from bwa (heng li)
-bntann1_t* BioseqdbBWA::seqlib_add_to_anns(std::string_view name, std::string_view seq, bntann1_t* ann, size_t offset)
+bntann1_t* BwaIndex::seqlib_add_to_anns(std::string_view name, std::string_view seq, bntann1_t* ann, size_t offset)
 {
 
     ann->offset = offset;
