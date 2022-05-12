@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cstring>
-#include <iostream>
 
 #include <htslib/htslib/sam.h>
 extern "C" {
