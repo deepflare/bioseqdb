@@ -1,5 +1,6 @@
 #include "bwa.h"
 
+#include <algorithm>
 #include <cstring>
 #include <stdexcept>
 
@@ -11,9 +12,46 @@ int is_bwt(ubyte_t *T, int n);
 
 inline namespace {
 
+class PacVector {
+public:
+    uint8_t get(uint64_t index) const {
+        return pac[index >> 2] >> ((~index & 3) << 1) & 3;
+    }
+
+    void set(uint64_t index, uint8_t value) {
+        pac[index >> 2] |= value << ((~index & 3) << 1);
+    }
+
+    void push_back(uint8_t value) {
+        if (n % 4 == 0)
+            pac.push_back(0);
+        set(n++, value);
+    }
+
+    void reserve(size_t count) {
+        pac.reserve(count / 4);
+    }
+
+    uint8_t* data() {
+        return pac.data();
+    }
+
+    size_t size() const {
+        return n;
+    }
+
+    size_t byte_size() const {
+        return pac.size();
+    }
+
+private:
+    std::vector<uint8_t> pac;
+    size_t n = 0;
+};
+
 struct CompressedReference {
-    std::vector<uint8_t> pac_bwa;
-    std::vector<uint8_t> pac_forward;
+    PacVector pac_bwa;
+    PacVector pac_forward;
     bntseq_t* bns;
 };
 
@@ -24,15 +62,7 @@ char* make_c_string(std::string_view str_view) {
     return c_str;
 }
 
-uint8_t pac_get(const std::vector<uint8_t>& pac, uint64_t index) {
-    return pac[index >> 2] >> ((~index & 3) << 1) & 3;
-}
-
-void pac_set(std::vector<uint8_t>& pac, uint64_t index, uint8_t value) {
-    pac[index >> 2] |= value << ((~index & 3) << 1);
-}
-
-void seqlib_add1(const BwaSequence& seq, bntseq_t *bns, std::vector<uint8_t>& pac, int64_t *m_pac, int *m_seqs, int *m_holes, bntamb1_t **q)
+void seqlib_add1(const BwaSequence& seq, bntseq_t *bns, PacVector& pac, int *m_seqs, int *m_holes, bntamb1_t **q)
 {
     bntann1_t *p;
     int lasts;
@@ -64,11 +94,7 @@ void seqlib_add1(const BwaSequence& seq, bntseq_t *bns, std::vector<uint8_t>& pa
         lasts = seq.seq[i];
         { // fill buffer
             if (c >= 4) c = lrand48()&3;
-            if (bns->l_pac == *m_pac) { // double the pac size
-                *m_pac <<= 1;
-                pac.resize(*m_pac / 4, 0);
-            }
-            pac_set(pac, bns->l_pac, c);
+            pac.push_back(c);
             ++bns->l_pac;
         }
     }
@@ -78,26 +104,22 @@ void seqlib_add1(const BwaSequence& seq, bntseq_t *bns, std::vector<uint8_t>& pa
 CompressedReference compress_reference(const std::vector<BwaSequence>& ref) {
     bntseq_t * bns = (bntseq_t*)calloc(1, sizeof(bntseq_t));
     int32_t m_seqs, m_holes;
-    int64_t m_pac;
     bntamb1_t *q;
 
     bns->seed = 11; // fixed seed for random generator
-    m_seqs = m_holes = 8; m_pac = 0x10000;
+    m_seqs = m_holes = 8;
     bns->anns = (bntann1_t*)calloc(m_seqs, sizeof(bntann1_t));
     bns->ambs = (bntamb1_t*)calloc(m_holes, sizeof(bntamb1_t));
-    std::vector<uint8_t> pac(m_pac / 4, 0);
+    PacVector pac;
+    pac.reserve(0x10000);
     q = bns->ambs;
 
     for (size_t k = 0; k < ref.size(); ++k)
-        seqlib_add1(ref[k], bns, pac, &m_pac, &m_seqs, &m_holes, &q);
+        seqlib_add1(ref[k], bns, pac, &m_seqs, &m_holes, &q);
 
-    std::vector<uint8_t> pac_bwa = pac;
-    int64_t m_pac_bwa = (bns->l_pac * 2 + 3) / 4 * 4;
-    pac_bwa.resize(m_pac_bwa / 4);
-    std::fill_n(pac_bwa.begin() + (bns->l_pac + 3) / 4, (m_pac_bwa - (bns->l_pac + 3) / 4 * 4) / 4, 0);
-    uint64_t bns_l_pac_bwa = bns->l_pac;
-    for (int64_t l = bns->l_pac - 1; l >= 0; --l, ++bns_l_pac_bwa)
-        pac_set(pac_bwa, bns_l_pac_bwa, 3 - pac_get(pac_bwa, l));
+    PacVector pac_bwa = pac;
+    for (int64_t l = bns->l_pac - 1; l >= 0; --l)
+        pac_bwa.push_back(3 - pac_bwa.get(l));
 
     return {
         .pac_bwa = pac_bwa,
@@ -163,11 +185,7 @@ BwaIndex::BwaIndex(const std::vector<BwaSequence>& ref_seqs): index(nullptr), op
 
     CompressedReference ref_compressed = compress_reference(ref_seqs);
 
-    size_t tlen = 0;
-    for (auto&& ref_seq : ref_seqs)
-        tlen += ref_seq.seq.length();
-
-    bwt_t *bwt = seqlib_bwt_pac2bwt(ref_compressed.pac_bwa.data(), tlen*2); // *2 for fwd and rev
+    bwt_t *bwt = seqlib_bwt_pac2bwt(ref_compressed.pac_bwa.data(), ref_compressed.pac_bwa.size());
     bwt_bwtupdate_core(bwt);
     bwt_cal_sa(bwt, 32);
     bwt_gen_cnt_table(bwt);
@@ -176,7 +194,7 @@ BwaIndex::BwaIndex(const std::vector<BwaSequence>& ref_seqs): index(nullptr), op
     index->bwt = bwt;
     index->bns = ref_compressed.bns;
     index->pac = (uint8_t*) malloc(ref_compressed.pac_forward.size());
-    std::copy(ref_compressed.pac_forward.begin(), ref_compressed.pac_forward.end(), index->pac);
+    std::copy_n(ref_compressed.pac_forward.data(), ref_compressed.pac_forward.byte_size(), index->pac);
 }
 
 BwaIndex::~BwaIndex() {
