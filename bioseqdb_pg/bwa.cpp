@@ -16,11 +16,25 @@ inline namespace {
 
 std::string cigar_compressed_to_string(const uint32_t *raw, int len) {
     std::string cigar;
-    for (int i=0; i<len; ++i) {
+    for (int i = 0; i < len; ++i) {
         cigar += std::to_string(bam_cigar_oplen(raw[i]));
         cigar += bam_cigar_opchr(raw[i]);
     }
     return cigar;
+}
+
+std::string_view slice_match(std::string_view nucleotides, const uint32_t *cigar_raw, int cigar_len) {
+    size_t start = 0;
+    size_t len = 0;
+    // Skip first N block, then use bam_cigar_type to check whether further blocks use nucleotides from the query to
+    // calculate the length of the match in the queried sequence.
+    for (int i = 0; i < cigar_len; ++i) {
+        if (i == 0 && bam_cigar_op(cigar_raw[i]) == BAM_CREF_SKIP)
+            start = bam_cigar_oplen(cigar_raw[i]);
+        else if (bam_cigar_type(bam_cigar_op(cigar_raw[i])) & 1)
+            len += bam_cigar_oplen(cigar_raw[i]);
+    }
+    return nucleotides.substr(start, len);
 }
 
 }
@@ -129,6 +143,7 @@ std::vector<AlignMatch> BioseqdbBWA::align_sequence(std::string_view read_nucleo
         mem_aln_t a = mem_reg2aln(memopt, idx->bns, idx->pac, read_nucleotides.length(), read_nucleotides.data(), &ar.a[i]);
         matches.push_back({
             .ref_id_index = ar.a[i].rid,
+            .query_subseq = std::string(slice_match(read_nucleotides, a.cigar, a.n_cigar)),
             .is_primary = (a.flag & BAM_FSECONDARY) == 0,
             .is_secondary = (a.flag & BAM_FSECONDARY) != 0,
             .cigar = cigar_compressed_to_string(a.cigar, a.n_cigar),

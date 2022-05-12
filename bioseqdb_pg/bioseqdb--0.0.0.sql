@@ -35,6 +35,7 @@ CREATE FUNCTION nuclseq_complement(NUCLSEQ)
 CREATE TYPE bwa_result AS (
     ref_id INTEGER,
     query_id INTEGER,
+    query_subseq NUCLSEQ,
     is_primary BOOLEAN,
     is_secondary BOOLEAN,
     cigar TEXT,
@@ -42,8 +43,7 @@ CREATE TYPE bwa_result AS (
     internal_ref_begin INTEGER,
     internal_ref_end INTEGER,
     internal_query_begin INTEGER,
-    internal_query_end INTEGER,
-    dummy_nuclseq NUCLSEQ
+    internal_query_end INTEGER
 );
 
 CREATE FUNCTION nuclseq_search_bwa(NUCLSEQ, CSTRING, CSTRING, CSTRING, BOOLEAN)

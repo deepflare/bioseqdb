@@ -22,6 +22,7 @@ struct UnalignSequence {
 
 struct AlignMatch {
     int ref_id_index;
+    std::string query_subseq;
     bool is_primary;
     bool is_secondary;
     std::string cigar;
