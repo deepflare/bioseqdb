@@ -143,15 +143,15 @@ std::vector<AlignMatch> BioseqdbBWA::align_sequence(std::string_view read_nucleo
         mem_aln_t a = mem_reg2aln(memopt, idx->bns, idx->pac, read_nucleotides.length(), read_nucleotides.data(), &ar.a[i]);
         matches.push_back({
             .ref_id_index = ar.a[i].rid,
+            .ref_match_begin = ar.a[i].rb,
+            .ref_match_end = ar.a[i].re,
             .query_subseq = std::string(slice_match(read_nucleotides, a.cigar, a.n_cigar)),
+            .query_match_begin = ar.a[i].qb,
+            .query_match_end = ar.a[i].qe,
             .is_primary = (a.flag & BAM_FSECONDARY) == 0,
             .is_secondary = (a.flag & BAM_FSECONDARY) != 0,
             .cigar = cigar_compressed_to_string(a.cigar, a.n_cigar),
             .score = a.score,
-            .internal_ref_begin = ar.a[i].rb,
-            .internal_ref_end = ar.a[i].re,
-            .internal_query_begin = ar.a[i].qb,
-            .internal_query_end = ar.a[i].qe,
         });
 
 //        if (ar.a[i].secondary >= 0 && (keep_sec_with_frac_of_primary_score < 0 || keep_sec_with_frac_of_primary_score > 1))

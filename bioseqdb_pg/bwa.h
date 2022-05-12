@@ -22,15 +22,15 @@ struct UnalignSequence {
 
 struct AlignMatch {
     int ref_id_index;
+    int64_t ref_match_begin;
+    int64_t ref_match_end;
     std::string query_subseq;
+    int query_match_begin;
+    int query_match_end;
     bool is_primary;
     bool is_secondary;
     std::string cigar;
     int score;
-    int64_t internal_ref_begin;
-    int64_t internal_ref_end;
-    int internal_query_begin;
-    int internal_query_end;
 };
 
 struct BioseqdbBWA {
