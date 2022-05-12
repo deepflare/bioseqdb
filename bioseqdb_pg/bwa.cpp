@@ -9,9 +9,6 @@ extern "C" {
 int is_bwt(ubyte_t *T, int n);
 }
 
-#define _set_pac(pac, l, c) ((pac)[(l)>>2] |= (c)<<((~(l)&3)<<1))
-#define _get_pac(pac, l) ((pac)[(l)>>2]>>((~(l)&3)<<1)&3)
-
 inline namespace {
 
 struct CompressedReference {
@@ -25,6 +22,14 @@ char* make_c_string(std::string_view str_view) {
     std::copy(str_view.begin(), str_view.end(), c_str);
     c_str[str_view.length()] = '\0';
     return c_str;
+}
+
+uint8_t pac_get(const std::vector<uint8_t>& pac, uint64_t index) {
+    return pac[index >> 2] >> ((~index & 3) << 1) & 3;
+}
+
+void pac_set(std::vector<uint8_t>& pac, uint64_t index, uint8_t value) {
+    pac[index >> 2] |= value << ((~index & 3) << 1);
 }
 
 void seqlib_add1(const BwaSequence& seq, bntseq_t *bns, std::vector<uint8_t>& pac, int64_t *m_pac, int *m_seqs, int *m_holes, bntamb1_t **q)
@@ -63,7 +68,7 @@ void seqlib_add1(const BwaSequence& seq, bntseq_t *bns, std::vector<uint8_t>& pa
                 *m_pac <<= 1;
                 pac.resize(*m_pac / 4, 0);
             }
-            _set_pac(pac, bns->l_pac, c);
+            pac_set(pac, bns->l_pac, c);
             ++bns->l_pac;
         }
     }
@@ -92,7 +97,7 @@ CompressedReference compress_reference(const std::vector<BwaSequence>& ref) {
     std::fill_n(pac_bwa.begin() + (bns->l_pac + 3) / 4, (m_pac_bwa - (bns->l_pac + 3) / 4 * 4) / 4, 0);
     uint64_t bns_l_pac_bwa = bns->l_pac;
     for (int64_t l = bns->l_pac - 1; l >= 0; --l, ++bns_l_pac_bwa)
-        _set_pac(pac_bwa, bns_l_pac_bwa, 3 - _get_pac(pac_bwa, l));
+        pac_set(pac_bwa, bns_l_pac_bwa, 3 - pac_get(pac_bwa, l));
 
     return {
         .pac_bwa = pac_bwa,
