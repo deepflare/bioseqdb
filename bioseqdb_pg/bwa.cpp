@@ -107,7 +107,7 @@ void BioseqdbBWA::build_index(const std::vector<UnalignSequence>& v) {
 
 }
 
-std::vector<AlignMatch> BioseqdbBWA::align_sequence(std::string_view read_nucleotides, bool hardclip) const {
+std::vector<AlignMatch> BioseqdbBWA::align_sequence(std::string_view read_nucleotides) const {
 
     // we haven't made an index, just return
     if (!idx)

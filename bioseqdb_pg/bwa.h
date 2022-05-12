@@ -49,7 +49,7 @@ struct BioseqdbBWA {
 
     void build_index(const std::vector<UnalignSequence>& v);
 
-    std::vector<AlignMatch> align_sequence(std::string_view read_nucleotides, bool hardclip) const;
+    std::vector<AlignMatch> align_sequence(std::string_view read_nucleotides) const;
 
     // Store the options in memory
     mem_opt_t * memopt;

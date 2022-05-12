@@ -290,7 +290,6 @@ Datum nuclseq_search_bwa(PG_FUNCTION_ARGS) {
     std::string_view table_name = PG_GETARG_CSTRING(1);
     std::string_view id_col_name = PG_GETARG_CSTRING(2);
     std::string_view seq_col_name = PG_GETARG_CSTRING(3);
-    bool hardclip = PG_GETARG_BOOL(4);
 
     if (int ret = SPI_connect(); ret < 0)
         elog(ERROR, "connectby: SPI_connect returned %d", ret);
@@ -306,7 +305,7 @@ Datum nuclseq_search_bwa(PG_FUNCTION_ARGS) {
     Tuplestorestate* ret_tupstore = create_tuplestore(rsi, ret_tupdest);
     AttInMetadata* attr_input_meta = TupleDescGetAttInMetadata(ret_tupdest);
 
-    std::vector<AlignMatch> aligns = bwa.align_sequence(nucls, hardclip);
+    std::vector<AlignMatch> aligns = bwa.align_sequence(nucls);
 
     for (AlignMatch& row : aligns) {
         HeapTuple tuple = build_tuple_bwa(std::nullopt, row, bwa, attr_input_meta);
@@ -333,9 +332,7 @@ Datum nuclseq_multi_search_bwa(PG_FUNCTION_ARGS) {
     std::string_view id_col_name = PG_GETARG_CSTRING(4);
     std::string_view seq_col_name = PG_GETARG_CSTRING(5);
 
-    bool hardclip = PG_GETARG_BOOL(6);
-
-    if (int ret = SPI_connect(); ret < 0) 
+    if (int ret = SPI_connect(); ret < 0)
         elog(ERROR, "connectby: SPI_connect returned %d", ret);
 
     TupleDesc ret_tupdest = get_retval_tupledesc(fcinfo);
@@ -347,7 +344,7 @@ Datum nuclseq_multi_search_bwa(PG_FUNCTION_ARGS) {
 
     std::string qsql = build_fetch_query(query_table_name, id_query_col_name, seq_query_col_name);
     iterate_nuclseq_table(qsql, nuclseq_oid, [&](auto id, auto nuclseq){
-        std::vector<AlignMatch> aligns = bwa.align_sequence(nuclseq, hardclip);
+        std::vector<AlignMatch> aligns = bwa.align_sequence(nuclseq);
 
         for (AlignMatch& row : aligns) {
             HeapTuple tuple = build_tuple_bwa(id, row, bwa, attr_input_meta);
