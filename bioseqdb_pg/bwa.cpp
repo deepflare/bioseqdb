@@ -198,7 +198,6 @@ BwaIndex::BwaIndex(const std::vector<BwaSequence>& ref_seqs): index(nullptr), op
 }
 
 BwaIndex::~BwaIndex() {
-    // TODO: Free index->bns, hitting a double free right now.
     if (index)
         bwa_idx_destroy(index);
     if (options)
