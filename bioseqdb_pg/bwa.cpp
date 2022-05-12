@@ -15,7 +15,7 @@ int is_bwt(ubyte_t *T, int n);
 inline namespace {
 
 struct CompressedReference {
-    uint8_t* pac_bwa;
+    std::vector<uint8_t> pac_bwa;
     uint8_t* pac_forward;
     bntseq_t* bns;
 };
@@ -137,15 +137,13 @@ CompressedReference compress_reference(const std::vector<BwaSequence>& ref) {
 
 //    }
 
-    uint8_t* pac_bwa = (uint8_t*) malloc(m_pac);
-    std::copy(pac, pac + m_pac, pac_bwa);
+    std::vector<uint8_t> pac_bwa(pac, pac + m_pac);
     int64_t m_pac_bwa = (bns->l_pac * 2 + 3) / 4 * 4;
-    pac_bwa = (uint8_t*)realloc(pac_bwa, m_pac_bwa/4);
-    memset(pac_bwa + (bns->l_pac + 3) / 4, 0, (m_pac_bwa - (bns->l_pac + 3) / 4 * 4) / 4);
+    pac_bwa.resize(m_pac_bwa / 4);
+    std::fill_n(pac_bwa.begin() + (bns->l_pac + 3) / 4, (m_pac_bwa - (bns->l_pac + 3) / 4 * 4) / 4, 0);
     uint64_t bns_l_pac_bwa = bns->l_pac;
     for (int64_t l = bns->l_pac - 1; l >= 0; --l, ++bns_l_pac_bwa)
         _set_pac(pac_bwa, bns_l_pac_bwa, 3 - _get_pac(pac_bwa, l));
-
 
     return {
         .pac_bwa = pac_bwa,
@@ -253,9 +251,8 @@ void BwaIndex::build_index(const std::vector<BwaSequence>& ref_seqs) {
 
     // make the bwt
     bwt_t *bwt;
-    bwt = seqlib_bwt_pac2bwt(ref_compressed.pac_bwa, tlen*2); // *2 for fwd and rev
+    bwt = seqlib_bwt_pac2bwt(ref_compressed.pac_bwa.data(), tlen*2); // *2 for fwd and rev
     bwt_bwtupdate_core(bwt);
-    free(ref_compressed.pac_bwa); // done with fwd-rev pac
 
     // construct sa from bwt and occ. adds it to bwt struct
     bwt_cal_sa(bwt, 32);
