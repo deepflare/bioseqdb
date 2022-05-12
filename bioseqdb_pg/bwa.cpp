@@ -31,10 +31,6 @@ uint8_t* seqlib_add1(const BwaSequence& seq, bntseq_t *bns, uint8_t *pac, int64_
 {
     bntann1_t *p;
     int lasts;
-    if (bns->n_seqs == *m_seqs) {
-        *m_seqs <<= 1;
-        bns->anns = (bntann1_t*)realloc(bns->anns, *m_seqs * sizeof(bntann1_t));
-    }
     p = bns->anns + bns->n_seqs;
     p->name = make_c_string(seq.id);
     p->anno = make_c_string("(null)");
