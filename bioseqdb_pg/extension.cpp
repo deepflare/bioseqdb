@@ -247,8 +247,8 @@ Tuplestorestate* create_tuplestore(ReturnSetInfo* rsi, TupleDesc& tupledesc) {
     return tupstore;
 }
 
-HeapTuple build_tuple_bwa(std::optional<std::string_view> query_id_view, const BwaMatch& match, const BwaIndex& bwa, AttInMetadata* att_meta) {
-    std::string ref_id = show(bwa.idx->bns->anns[match.ref_id_index].name);
+HeapTuple build_tuple_bwa(std::optional<std::string_view> query_id_view, const BwaMatch& match, AttInMetadata* att_meta) {
+    std::string ref_id = show(match.ref_id);
     std::string ref_match_begin = show(match.ref_match_begin);
     std::string ref_match_end = show(match.ref_match_end);
     std::optional<std::string> query_id = query_id_view.has_value() ? std::optional(show(std::string(*query_id_view))) : std::nullopt;
@@ -308,7 +308,7 @@ Datum nuclseq_search_bwa(PG_FUNCTION_ARGS) {
     std::vector<BwaMatch> aligns = bwa.align_sequence(nucls);
 
     for (BwaMatch& row : aligns) {
-        HeapTuple tuple = build_tuple_bwa(std::nullopt, row, bwa, attr_input_meta);
+        HeapTuple tuple = build_tuple_bwa(std::nullopt, row, attr_input_meta);
         tuplestore_puttuple(ret_tupstore, tuple);
         heap_freetuple(tuple);
     }
@@ -347,7 +347,7 @@ Datum nuclseq_multi_search_bwa(PG_FUNCTION_ARGS) {
         std::vector<BwaMatch> aligns = bwa.align_sequence(nuclseq);
 
         for (BwaMatch& row : aligns) {
-            HeapTuple tuple = build_tuple_bwa(id, row, bwa, attr_input_meta);
+            HeapTuple tuple = build_tuple_bwa(id, row, attr_input_meta);
             tuplestore_puttuple(ret_tupstore, tuple);
             heap_freetuple(tuple);
         }

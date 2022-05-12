@@ -14,12 +14,12 @@ KSEQ_DECLARE(gzFile)
 }
 
 struct BwaSequence {
-    std::string_view name;
-    std::string_view nucleotides;
+    std::string_view id;
+    std::string_view seq;
 };
 
 struct BwaMatch {
-    int ref_id_index;
+    std::string ref_id;
     int64_t ref_match_begin;
     int64_t ref_match_end;
     std::string query_subseq;
@@ -31,7 +31,8 @@ struct BwaMatch {
     int score;
 };
 
-struct BwaIndex {
+class BwaIndex {
+public:
     BwaIndex() {
         idx = nullptr;
         memopt = mem_opt_init();
@@ -49,6 +50,7 @@ struct BwaIndex {
 
     std::vector<BwaMatch> align_sequence(std::string_view read_nucleotides) const;
 
+private:
     // Store the options in memory
     mem_opt_t * memopt;
 

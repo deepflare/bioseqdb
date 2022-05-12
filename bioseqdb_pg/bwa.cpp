@@ -23,7 +23,7 @@ std::string cigar_compressed_to_string(const uint32_t *raw, int len) {
 std::string_view slice_match(std::string_view nucleotides, const uint32_t *cigar_raw, int cigar_len) {
     size_t start = 0;
     size_t len = 0;
-    // Skip first N block, then use bam_cigar_type to check whether further blocks use nucleotides from the query to
+    // Skip first N block, then use bam_cigar_type to check whether further blocks use seq from the query to
     // calculate the length of the match in the queried sequence.
     for (int i = 0; i < cigar_len; ++i) {
         if (i == 0 && bam_cigar_op(cigar_raw[i]) == BAM_CREF_SKIP)
@@ -39,7 +39,7 @@ std::string_view slice_match(std::string_view nucleotides, const uint32_t *cigar
 void BwaIndex::build_index(const std::vector<BwaSequence>& ref_seqs) {
     assert(ref_seqs.size() > 0);
     for (auto&& ref_seq : ref_seqs)
-        assert(!(ref_seq.name.empty() || ref_seq.nucleotides.empty()));
+        assert(!(ref_seq.id.empty() || ref_seq.seq.empty()));
     assert(idx == nullptr);
 
     // allocate memory for idx
@@ -53,7 +53,7 @@ void BwaIndex::build_index(const std::vector<BwaSequence>& ref_seqs) {
 
     size_t tlen = 0;
     for (auto&& ref_seq : ref_seqs)
-        tlen += ref_seq.nucleotides.length();
+        tlen += ref_seq.seq.length();
 
 #ifdef DEBUG_BWATOOLS
     std::cerr << "ref seq length: " << tlen << std::endl;
@@ -80,8 +80,8 @@ void BwaIndex::build_index(const std::vector<BwaSequence>& ref_seqs) {
     bns->anns = (bntann1_t*)calloc(ref_seqs.size(), sizeof(bntann1_t));
     size_t offset = 0;
     for (size_t k = 0; k < ref_seqs.size(); ++k) {
-        seqlib_add_to_anns(ref_seqs[k].name, ref_seqs[k].nucleotides, &bns->anns[k], offset);
-        offset += ref_seqs[k].nucleotides.length();
+        seqlib_add_to_anns(ref_seqs[k].id, ref_seqs[k].seq, &bns->anns[k], offset);
+        offset += ref_seqs[k].seq.length();
     }
 
     //ambs is "holes", like N bases
@@ -105,7 +105,7 @@ std::vector<BwaMatch> BwaIndex::align_sequence(std::string_view read_nucleotides
     for (size_t i = 0; i < ar.n; ++i) {
         mem_aln_t a = mem_reg2aln(memopt, idx->bns, idx->pac, read_nucleotides.length(), read_nucleotides.data(), &ar.a[i]);
         matches.push_back({
-            .ref_id_index = ar.a[i].rid,
+            .ref_id = std::string(idx->bns->anns[ar.a[i].rid].name),
             .ref_match_begin = ar.a[i].rb,
             .ref_match_end = ar.a[i].re,
             .query_subseq = std::string(slice_match(read_nucleotides, a.cigar, a.n_cigar)),
@@ -251,19 +251,19 @@ uint8_t* BwaIndex::seqlib_make_pac(const std::vector<BwaSequence>& v, bool for_o
 
         // make the ref name kstring
         kstring_t * name = (kstring_t*)malloc(1 * sizeof(kstring_t));
-        name->l = v[k].name.length() + 1;
-        name->m = v[k].name.length() + 3;
+        name->l = v[k].id.length() + 1;
+        name->m = v[k].id.length() + 3;
         name->s = (char*)calloc(name->m, sizeof(char));
-        memcpy(name->s, v[k].name.data(), v[k].name.length());
-        name->s[v[k].name.length()] = '\0';
+        memcpy(name->s, v[k].id.data(), v[k].id.length());
+        name->s[v[k].id.length()] = '\0';
 
         // make the sequence kstring
         kstring_t * t = (kstring_t*)malloc(sizeof(kstring_t));
-        t->l = v[k].nucleotides.length();
-        t->m = v[k].nucleotides.length() + 2;
+        t->l = v[k].seq.length();
+        t->m = v[k].seq.length() + 2;
         //t->s = (char*)calloc(v[k].Seq.length(), sizeof(char));
         t->s = (char*)malloc(t->m);
-        memcpy(t->s, v[k].nucleotides.data(), v[k].nucleotides.length());
+        memcpy(t->s, v[k].seq.data(), v[k].seq.length());
 
         // put into a kstring
         kseq_t *ks = (kseq_t*)calloc(1, sizeof(kseq_t));
