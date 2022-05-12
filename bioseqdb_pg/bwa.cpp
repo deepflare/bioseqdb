@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cstring>
-#include <stdexcept>
 
 #include <htslib/htslib/sam.h>
 extern "C" {
@@ -58,6 +57,9 @@ char* make_c_string(std::string_view str_view) {
     return c_str;
 }
 
+// BWA requires nucleotide sequences to be passed using 2-bit encoding, where 0, 1, 2 and 3 correspond to ACGT
+// respectively. Unknown nucleotides are represented by a random value, and description of groups of unknown values
+// ("holes") is passed as an additional parameter.
 void compress_reference_seq(const BwaSequence& ref, bntseq_t* bns, PacVector& pac, std::vector<bntamb1_t>& holes) {
     bntann1_t& ann = bns->anns[bns->n_seqs];
     ann.name = make_c_string(ref.id);
@@ -70,11 +72,9 @@ void compress_reference_seq(const BwaSequence& ref, bntseq_t* bns, PacVector& pa
     bntamb1_t* current_hole = nullptr;
     char prev_char = 0;
     for (char chr : ref.seq) {
-        // ACGT decode to 0123 respectively, N and unknown characters decode to 4, and minus decodes to 5. This encoding
-        // lets you efficiently compute the complement.
-        int c = nst_nt4_table[(int) chr];
+        int nucl = nst_nt4_table[(int) chr];
 
-        if (c >= 4) {
+        if (nucl >= 4) {
             if (prev_char == chr)
                 ++current_hole->len;
             else {
@@ -91,40 +91,45 @@ void compress_reference_seq(const BwaSequence& ref, bntseq_t* bns, PacVector& pa
 
         prev_char = chr;
 
-        if (c >= 4)
-            c = lrand48() & 3;
-        pac.push_back(c);
+        if (nucl >= 4)
+            nucl = lrand48() & 3;
+        pac.push_back(nucl);
         ++bns->l_pac;
     }
 
     ++bns->n_seqs;
 }
 
+// The original sequence needs to be converted into three objects. To build an index, you need to pass a 2-bit encoded
+// sequence of all reference nucleotides, concatenated with a 2-bit encoded sequence of the reverse of the complement of
+// all reference nucleotides (pac_bwa). Extracting detailed results later requires a 2-bit encoded sequence of all
+// reference nucleotides, without the reverse complement (pac_forward). The third object is the bns structure, which
+// provides information about metadata and boundaries of individual reference sequences, as well as a list of all holes.
 CompressedReference compress_reference(const std::vector<BwaSequence>& refs) {
-    bntseq_t * bns = (bntseq_t*) calloc(1, sizeof(bntseq_t));
+    bntseq_t* bns = (bntseq_t*) calloc(1, sizeof(bntseq_t));
     // BWA encodes holes (unknown nucleotides) as a random valid nucleotide in its 2-bit encoding. This can produce
     // nondeterministic results, so the RNG seed is fixed to 11 to prevent this.
     bns->seed = 11;
     bns->anns = (bntann1_t*) calloc(refs.size(), sizeof(bntann1_t));
 
-    PacVector pac;
+    PacVector pac_forward;
 
     std::vector<bntamb1_t> holes;
     holes.reserve(8);
 
     for (const BwaSequence& ref : refs)
-        compress_reference_seq(ref, bns, pac, holes);
+        compress_reference_seq(ref, bns, pac_forward, holes);
 
     bns->ambs = (bntamb1_t*) calloc(holes.size(), sizeof(bntamb1_t));
     std::copy(holes.begin(), holes.end(), bns->ambs);
 
-    PacVector pac_bwa = pac;
+    PacVector pac_bwa = pac_forward;
     for (int64_t l = bns->l_pac - 1; l >= 0; --l)
         pac_bwa.push_back(3 - pac_bwa.get(l));
 
     return {
         .pac_bwa = pac_bwa,
-        .pac_forward = pac,
+        .pac_forward = pac_forward,
         .bns = bns,
     };
 }
@@ -179,14 +184,14 @@ std::string cigar_compressed_to_string(const uint32_t *raw, int len) {
 
 }
 
-BwaIndex::BwaIndex(const std::vector<BwaSequence>& ref_seqs): index(nullptr), options(mem_opt_init()) {
-    assert(!ref_seqs.empty());
-    for (auto&& ref_seq : ref_seqs)
-        assert(!(ref_seq.id.empty() || ref_seq.seq.empty()));
+BwaIndex::BwaIndex(const std::vector<BwaSequence>& refs): index(nullptr), options(mem_opt_init()) {
+    assert(!refs.empty());
+    for (auto&& ref : refs)
+        assert(!(ref.id.empty() || ref.seq.empty()));
 
-    CompressedReference ref_compressed = compress_reference(ref_seqs);
+    CompressedReference ref_compressed = compress_reference(refs);
 
-    bwt_t *bwt = seqlib_bwt_pac2bwt(ref_compressed.pac_bwa.data(), ref_compressed.pac_bwa.size());
+    bwt_t* bwt = seqlib_bwt_pac2bwt(ref_compressed.pac_bwa.data(), ref_compressed.pac_bwa.size());
     bwt_bwtupdate_core(bwt);
     bwt_cal_sa(bwt, 32);
     bwt_gen_cnt_table(bwt);
@@ -199,37 +204,33 @@ BwaIndex::BwaIndex(const std::vector<BwaSequence>& ref_seqs): index(nullptr), op
 }
 
 BwaIndex::~BwaIndex() {
-    if (index)
-        bwa_idx_destroy(index);
-    if (options)
-        free(options);
+    bwa_idx_destroy(index);
+    free(options);
 }
 
 std::vector<BwaMatch> BwaIndex::align_sequence(std::string_view query) const {
-    mem_alnreg_v ar = mem_align1(options, index->bwt, index->bns, index->pac, query.length(), query.data()); // get all the hits (was c_str())
-
-    // TODO: Revert the CIGAR string when the match is reversed?
-
+    mem_alnreg_v aligns = mem_align1(options, index->bwt, index->bns, index->pac, query.length(), query.data()); // get all the hits (was c_str())
     std::vector<BwaMatch> matches;
-    for (mem_alnreg_t* alignment = ar.a; alignment != ar.a + ar.n; ++alignment) {
-        mem_aln_t a = mem_reg2aln(options, index->bns, index->pac, query.length(), query.data(), alignment);
+    for (mem_alnreg_t* align = aligns.a; align != aligns.a + aligns.n; ++align) {
+        mem_aln_t details = mem_reg2aln(options, index->bns, index->pac, query.length(), query.data(), align);
         matches.push_back({
-            .ref_id = std::string_view(index->bns->anns[alignment->rid].name),
-            .ref_match_begin = alignment->rb,
-            .ref_match_end = alignment->re,
-            .ref_match_len = alignment->re - alignment->rb,
-            .query_subseq = query.substr(alignment->qb, alignment->qe - alignment->qb),
-            .query_match_begin = alignment->qb,
-            .query_match_end = alignment->qe,
-            .query_match_len = alignment->qe - alignment->qb,
-            .is_primary = (a.flag & BAM_FSECONDARY) == 0,
-            .is_secondary = (a.flag & BAM_FSECONDARY) != 0,
-            .is_reverse = a.is_rev != 0,
-            .cigar = cigar_compressed_to_string(a.cigar, a.n_cigar),
-            .score = a.score,
+            .ref_id = std::string_view(index->bns->anns[align->rid].name),
+            .ref_match_begin = align->rb,
+            .ref_match_end = align->re,
+            .ref_match_len = align->re - align->rb,
+            .query_subseq = query.substr(align->qb, align->qe - align->qb),
+            .query_match_begin = align->qb,
+            .query_match_end = align->qe,
+            .query_match_len = align->qe - align->qb,
+            .is_primary = (details.flag & BAM_FSECONDARY) == 0,
+            .is_secondary = (details.flag & BAM_FSECONDARY) != 0,
+            .is_reverse = details.is_rev != 0,
+            // TODO: Revert the CIGAR string and/or subsequences when the match is reversed?
+            .cigar = cigar_compressed_to_string(details.cigar, details.n_cigar),
+            .score = details.score,
         });
-        free(a.cigar);
+        free(details.cigar);
     }
-    free(ar.a);
+    free(aligns.a);
     return matches;
 }

@@ -32,7 +32,7 @@ struct BwaMatch {
 
 class BwaIndex {
 public:
-    explicit BwaIndex(const std::vector<BwaSequence>& ref_seqs);
+    explicit BwaIndex(const std::vector<BwaSequence>& refs);
     ~BwaIndex();
 
     std::vector<BwaMatch> align_sequence(std::string_view query) const;
