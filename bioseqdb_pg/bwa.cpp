@@ -208,7 +208,6 @@ std::vector<BwaMatch> BwaIndex::align_sequence(std::string_view query) const {
     mem_alnreg_v ar = mem_align1(options, index->bwt, index->bns, index->pac, query.length(), query.data()); // get all the hits (was c_str())
 
     // TODO: Revert the CIGAR string when the match is reversed?
-    // TOOD: Free memory.
 
     std::vector<BwaMatch> matches;
     for (mem_alnreg_t* alignment = ar.a; alignment != ar.a + ar.n; ++alignment) {
@@ -228,6 +227,8 @@ std::vector<BwaMatch> BwaIndex::align_sequence(std::string_view query) const {
             .cigar = cigar_compressed_to_string(a.cigar, a.n_cigar),
             .score = a.score,
         });
+        free(a.cigar);
     }
+    free(ar.a);
     return matches;
 }
