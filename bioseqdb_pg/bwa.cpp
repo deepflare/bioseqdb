@@ -118,17 +118,17 @@ std::vector<BwaMatch> BwaIndex::align_sequence(std::string_view read_nucleotides
     // TOOD: Free memory.
 
     std::vector<BwaMatch> matches;
-    for (size_t i = 0; i < ar.n; ++i) {
-        mem_aln_t a = mem_reg2aln(memopt, idx->bns, idx->pac, read_nucleotides.length(), read_nucleotides.data(), &ar.a[i]);
+    for (mem_alnreg_t* alignment = ar.a; alignment != ar.a + ar.n; ++alignment) {
+        mem_aln_t a = mem_reg2aln(memopt, idx->bns, idx->pac, read_nucleotides.length(), read_nucleotides.data(), alignment);
         matches.push_back({
-            .ref_id = std::string(idx->bns->anns[ar.a[i].rid].name),
-            .ref_match_begin = ar.a[i].rb,
-            .ref_match_end = ar.a[i].re,
-            .ref_match_len = ar.a[i].re - ar.a[i].rb,
+            .ref_id = std::string(idx->bns->anns[alignment->rid].name),
+            .ref_match_begin = alignment->rb,
+            .ref_match_end = alignment->re,
+            .ref_match_len = alignment->re - alignment->rb,
             .query_subseq = std::string(slice_match(read_nucleotides, a.cigar, a.n_cigar)),
-            .query_match_begin = ar.a[i].qb,
-            .query_match_end = ar.a[i].qe,
-            .query_match_len = ar.a[i].qe - ar.a[i].qb,
+            .query_match_begin = alignment->qb,
+            .query_match_end = alignment->qe,
+            .query_match_len = alignment->qe - alignment->qb,
             .is_primary = (a.flag & BAM_FSECONDARY) == 0,
             .is_secondary = (a.flag & BAM_FSECONDARY) != 0,
             .is_reverse = a.is_rev != 0,
