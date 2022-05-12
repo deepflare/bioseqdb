@@ -7,8 +7,6 @@
 
 extern "C" {
 #include <bwa/bwamem.h>
-#include <bwa/kseq.h>
-KSEQ_DECLARE(gzFile)
 }
 
 struct BwaSequence {

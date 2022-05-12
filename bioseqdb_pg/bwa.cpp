@@ -20,7 +20,14 @@ struct CompressedReference {
     bntseq_t* bns;
 };
 
-uint8_t* seqlib_add1(const kseq_t *seq, bntseq_t *bns, uint8_t *pac, int64_t *m_pac, int *m_seqs, int *m_holes, bntamb1_t **q)
+char* make_c_string(std::string_view str_view) {
+    char* c_str = (char*) malloc(str_view.length() + 1);
+    std::copy(str_view.begin(), str_view.end(), c_str);
+    c_str[str_view.length()] = '\0';
+    return c_str;
+}
+
+uint8_t* seqlib_add1(const BwaSequence& seq, bntseq_t *bns, uint8_t *pac, int64_t *m_pac, int *m_seqs, int *m_holes, bntamb1_t **q)
 {
     bntann1_t *p;
     int lasts;
@@ -29,15 +36,16 @@ uint8_t* seqlib_add1(const kseq_t *seq, bntseq_t *bns, uint8_t *pac, int64_t *m_
         bns->anns = (bntann1_t*)realloc(bns->anns, *m_seqs * sizeof(bntann1_t));
     }
     p = bns->anns + bns->n_seqs;
-    p->name = strdup((char*)seq->name.s);
-    p->anno = seq->comment.l > 0? strdup((char*)seq->comment.s) : strdup("(null)");
-    p->gi = 0; p->len = seq->seq.l;
+    p->name = make_c_string(seq.id);
+    p->anno = make_c_string("(null)");
+    p->gi = 0;
+    p->len = seq.seq.length();
     p->offset = (bns->n_seqs == 0)? 0 : (p-1)->offset + (p-1)->len;
     p->n_ambs = 0;
-    for (size_t i = lasts = 0; i < seq->seq.l; ++i) {
-        int c = nst_nt4_table[(int)seq->seq.s[i]];
+    for (size_t i = lasts = 0; i < seq.seq.length(); ++i) {
+        int c = nst_nt4_table[(int)seq.seq[i]];
         if (c >= 4) { // N
-            if (lasts == seq->seq.s[i]) { // contiguous N
+            if (lasts == seq.seq[i]) { // contiguous N
                 ++(*q)->len;
             } else {
                 if (bns->n_holes == *m_holes) {
@@ -47,12 +55,12 @@ uint8_t* seqlib_add1(const kseq_t *seq, bntseq_t *bns, uint8_t *pac, int64_t *m_
                 *q = bns->ambs + bns->n_holes;
                 (*q)->len = 1;
                 (*q)->offset = p->offset + i;
-                (*q)->amb = seq->seq.s[i];
+                (*q)->amb = seq.seq[i];
                 ++p->n_ambs;
                 ++bns->n_holes;
             }
         }
-        lasts = seq->seq.s[i];
+        lasts = seq.seq[i];
         { // fill buffer
             if (c >= 4) c = lrand48()&3;
             if (bns->l_pac == *m_pac) { // double the pac size
@@ -84,45 +92,8 @@ CompressedReference compress_reference(const std::vector<BwaSequence>& ref) {
     q = bns->ambs;
 
     // move through the unaligned sequences
-    for (size_t k = 0; k < ref.size(); ++k) {
-
-        // make the ref name kstring
-        kstring_t * name = (kstring_t*)malloc(1 * sizeof(kstring_t));
-        name->l = ref[k].id.length() + 1;
-        name->m = ref[k].id.length() + 3;
-        name->s = (char*)calloc(name->m, sizeof(char));
-        memcpy(name->s, ref[k].id.data(), ref[k].id.length());
-        name->s[ref[k].id.length()] = '\0';
-
-        // make the sequence kstring
-        kstring_t * t = (kstring_t*)malloc(sizeof(kstring_t));
-        t->l = ref[k].seq.length();
-        t->m = ref[k].seq.length() + 2;
-        //t->s = (char*)calloc(v[k].Seq.length(), sizeof(char));
-        t->s = (char*)malloc(t->m);
-        memcpy(t->s, ref[k].seq.data(), ref[k].seq.length());
-
-        // put into a kstring
-        kseq_t *ks = (kseq_t*)calloc(1, sizeof(kseq_t));
-        ks->seq = *t;
-        ks->name = *name;
-
-        // make the forward only pac
-        pac = seqlib_add1(ks, bns, pac, &m_pac, &m_seqs, &m_holes, &q);
-
-        // clear it out
-        free(name->s);
-        free(name);
-        free(t->s);
-        free(t);
-        //free(ks->name.s);
-        //free(ks->seq.s);
-        //free(ks->f->buf);
-        //free(
-        free(ks);
-        // NOTE free kstring_t?
-        //kseq_destroy(s);
-    }
+    for (size_t k = 0; k < ref.size(); ++k)
+        pac = seqlib_add1(ref[k], bns, pac, &m_pac, &m_seqs, &m_holes, &q);
 
 //    if (!for_only)
 //    {
