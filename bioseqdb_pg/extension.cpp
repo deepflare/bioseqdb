@@ -257,6 +257,7 @@ HeapTuple build_tuple_bwa(std::optional<std::string_view> query_id_view, const B
     std::string query_match_end = show(match.query_match_end);
     std::string is_primary = show(match.is_primary);
     std::string is_secondary = show(match.is_secondary);
+    std::string is_reverse = show(match.is_reverse);
     std::string cigar = show(match.cigar);
     std::string score = show(match.score);
 
@@ -270,6 +271,7 @@ HeapTuple build_tuple_bwa(std::optional<std::string_view> query_id_view, const B
         query_match_end.data(),
         is_primary.data(),
         is_secondary.data(),
+        is_reverse.data(),
         cigar.data(),
         score.data(),
     };

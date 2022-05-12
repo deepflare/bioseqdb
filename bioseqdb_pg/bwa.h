@@ -25,6 +25,7 @@ struct BwaMatch {
     int query_match_end;
     bool is_primary;
     bool is_secondary;
+    bool is_reverse;
     std::string cigar;
     int score;
 };

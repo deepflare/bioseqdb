@@ -42,6 +42,7 @@ CREATE TYPE bwa_result AS (
     query_match_end INTEGER,
     is_primary BOOLEAN,
     is_secondary BOOLEAN,
+    is_reverse BOOLEAN,
     cigar TEXT,
     score INTEGER
 );

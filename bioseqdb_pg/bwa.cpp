@@ -129,6 +129,7 @@ std::vector<BwaMatch> BwaIndex::align_sequence(std::string_view read_nucleotides
             .query_match_end = ar.a[i].qe,
             .is_primary = (a.flag & BAM_FSECONDARY) == 0,
             .is_secondary = (a.flag & BAM_FSECONDARY) != 0,
+            .is_reverse = a.is_rev != 0,
             .cigar = cigar_compressed_to_string(a.cigar, a.n_cigar),
             .score = a.score,
         });
