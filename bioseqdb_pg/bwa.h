@@ -15,11 +15,11 @@ struct BwaSequence {
 };
 
 struct BwaMatch {
-    std::string ref_id;
+    std::string_view ref_id;
     int64_t ref_match_begin;
     int64_t ref_match_end;
     int64_t ref_match_len;
-    std::string query_subseq;
+    std::string_view query_subseq;
     int query_match_begin;
     int query_match_end;
     int query_match_len;

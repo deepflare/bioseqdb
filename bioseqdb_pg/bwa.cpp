@@ -214,11 +214,11 @@ std::vector<BwaMatch> BwaIndex::align_sequence(std::string_view query) const {
     for (mem_alnreg_t* alignment = ar.a; alignment != ar.a + ar.n; ++alignment) {
         mem_aln_t a = mem_reg2aln(options, index->bns, index->pac, query.length(), query.data(), alignment);
         matches.push_back({
-            .ref_id = std::string(index->bns->anns[alignment->rid].name),
+            .ref_id = std::string_view(index->bns->anns[alignment->rid].name),
             .ref_match_begin = alignment->rb,
             .ref_match_end = alignment->re,
             .ref_match_len = alignment->re - alignment->rb,
-            .query_subseq = std::string(query.substr(alignment->qb, alignment->qe - alignment->qb)),
+            .query_subseq = query.substr(alignment->qb, alignment->qe - alignment->qb),
             .query_match_begin = alignment->qb,
             .query_match_end = alignment->qe,
             .query_match_len = alignment->qe - alignment->qb,
