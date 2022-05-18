@@ -48,7 +48,7 @@ namespace {
 // libraries can handle them poorly (for example, by replacing them with Ns). They should be handled before importing
 // them into the database, in order to make the internals more robust and prevent accidental usage. A valid option when
 // importing is replacing them with uppercase ones, as their most common use is for repeating but valid nucleotides.
-const std::string_view allowedNucleotides = "ACGTN";
+const std::string_view allowedNucleotides = "ACGTNWSMKRYSBDHV";
 
 template <typename T> std::string show(const T& x) {
     std::stringstream ss;
