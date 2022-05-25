@@ -29,6 +29,10 @@ struct BwaMatch {
     bool is_reverse;
     std::string cigar;
     int score;
+    int mismatch_count;
+    int gap_open;
+    int ident_n;
+    int alignment_len;
 };
 
 class BwaIndex {

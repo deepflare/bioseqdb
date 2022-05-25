@@ -52,7 +52,11 @@ CREATE TYPE bwa_result AS (
     is_secondary BOOLEAN,
     is_reverse BOOLEAN,
     cigar TEXT,
-    score INTEGER
+    score INTEGER,
+    mismatch_count INTEGER,
+    gap_open INTEGER,
+    ident_n INTEGER,
+    alignment_len INTEGER
 );
 
 CREATE FUNCTION nuclseq_search_bwa(NUCLSEQ, CSTRING, CSTRING, CSTRING)
