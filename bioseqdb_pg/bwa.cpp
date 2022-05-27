@@ -265,13 +265,55 @@ std::vector<BwaMatch> BwaIndex::align_sequence(std::string_view query) const {
         // TODO: How do rb/re fields look in reverse matches?
         int64_t ref_offset = index->bns->anns[align->rid].offset;
         mem_aln_t details = mem_reg2aln(options, index->bns, index->pac, query.length(), query.data(), align);
+        int alignment_len = 0;
+        int gap_open = 0;
+        int identical = 0;
+        int mismatch_count = 0;
+        int ref_idx = 0, read_idx = 0;
+        std::string ref_subseq = extract_reference_subseq(index, align->rb, align->re);
+        std::basic_string_view<char> query_subseq = query.substr(align->qb, align->qe - align->qb);
+        for (size_t i = 0; i < details.n_cigar; ++i) {
+            int cnt = bam_cigar_oplen(details.cigar[i]);
+            char opcode = bam_cigar_opchr(details.cigar[i]);
+            alignment_len += cnt;
+            switch (opcode) {
+                case 'X': // Chyba nie jest generowane przez bwa.
+                    ref_idx += cnt;
+                    read_idx += cnt;
+                    mismatch_count += cnt;
+                    break;
+                case '=': // Chyba nie jest generowane przez bwa.
+                    ref_idx += cnt;
+                    read_idx += cnt;
+                    identical += cnt;
+                    break;
+                case 'M':
+                    for (int j = 0; j < cnt; ++j, ++read_idx, ++ref_idx) {
+                        if (ref_subseq[ref_idx] == query_subseq[read_idx])
+                            ++identical;
+                        else
+                            ++mismatch_count;
+                    }
+                    break;
+                // TODO should deletions or insertions count as mismatches?
+                // In SeqLib/src/ssw_cpp.cpp they are, but in mmseqs2 (src/util/convertalignments.cpp) aren't.
+                case 'D':
+                    gap_open += 1;
+                    ref_idx += cnt;
+                    break;
+                case 'I':
+                    gap_open += 1;
+                    read_idx += cnt;
+                    break;
+            }
+        }
         matches.push_back({
             .ref_id = std::string_view(index->bns->anns[align->rid].name),
-            .ref_subseq = extract_reference_subseq(index, align->rb, align->re),
+            .ref_subseq = ref_subseq,
             .ref_match_begin = align->rb - ref_offset,
             .ref_match_end = align->re - ref_offset,
             .ref_match_len = align->re - align->rb,
-            .query_subseq = query.substr(align->qb, align->qe - align->qb),
+            .query_subseq = query_subseq,
             .query_match_begin = align->qb,
             .query_match_end = align->qe,
             .query_match_len = align->qe - align->qb,
@@ -281,6 +323,10 @@ std::vector<BwaMatch> BwaIndex::align_sequence(std::string_view query) const {
             // TODO: Revert the CIGAR string and/or subsequences when the match is reversed?
             .cigar = cigar_compressed_to_string(details.cigar, details.n_cigar),
             .score = details.score,
+            .mismatch_count = mismatch_count,
+            .gap_open = gap_open,
+            .ident_n = identical,
+            .alignment_len = alignment_len, 
         });
         free(details.cigar);
     }
