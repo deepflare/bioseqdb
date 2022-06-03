@@ -39,12 +39,12 @@ CREATE FUNCTION nuclseq_reverse(NUCLSEQ)
     LANGUAGE C IMMUTABLE STRICT;
 
 CREATE TYPE bwa_result AS (
-    ref_id INTEGER,
+    ref_id BIGINT,
     ref_subseq NUCLSEQ,
     ref_match_start INTEGER,
     ref_match_end INTEGER,
     ref_match_len INTEGER,
-    query_id INTEGER,
+    query_id BIGINT,
     query_subseq NUCLSEQ,
     query_match_start INTEGER,
     query_match_end INTEGER,

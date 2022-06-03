@@ -3,7 +3,7 @@
 #include <cstring>
 #include <cstdint>
 
-#include <htslib/sam.h>
+#include <htslib/htslib/sam.h>
 extern "C" {
 #include <bwa/bwt.h>
 // Internal libbwa symbol, not exported through any of the headers.
@@ -32,14 +32,14 @@ inline namespace {
         // TODO: optimize
         // Forward
         for (size_t i = 0; i < pac_len ; i++) {
-            buf[i] = pac[i>>2] >> ((3 - (i&3)) << 1) & 3;
+            buf[i] = pac_raw_get(pac, i);
             bwt->L2[1 + buf[i]]++;
             bwt->L2[4 - buf[i]]++;
         }
 
         // Backward complement
         for (ssize_t i = pac_len - 1; i >= 0 ; i--)
-            buf[2 * pac_len - 1 - i] = 3 - (pac[i>>2] >> ((3 - (i&3)) << 1) & 3);
+            buf[2 * pac_len - 1 - i] = 0b11 - pac_raw_get(pac, i);
 
         for (int i = 2; i <= 4; ++i)
             bwt->L2[i] += bwt->L2[i - 1];
@@ -60,11 +60,11 @@ inline namespace {
     }
 
     std::string extract_reference_subseq(bwaidx_t* index, int64_t ref_begin, int64_t ref_end) {
-        // TODO directly return PgNucleotideSequence (low priority)
+        // TODO directly return PgNucleotideSequence (low priority).
         std::string subseq(ref_end - ref_begin, '?');
         for (int64_t i = 0; i < subseq.size(); ++i)
             subseq[i] = "ACGT"[pac_raw_get(index->pac, ref_begin + i)];
-        // TODO: Use binary search to look for relevant holes.
+        // TODO: Use binary search to look for relevant holes (low priority).
         for (bntamb1_t* hole = index->bns->ambs; hole != index->bns->ambs + index->bns->n_holes; ++hole) {
             int64_t left_intersect = std::max(hole->offset, ref_begin);
             int64_t right_intersect = std::min(hole->offset + hole->len, ref_end);
@@ -86,19 +86,19 @@ inline namespace {
 
 BwaIndex::BwaIndex(): index(nullptr), pac_forward(), holes(), annotations(), options(mem_opt_init()) {}
 
-void BwaIndex::add_ref_sequence(std::string_view id, const NucletideSequence& seq) {
+void BwaIndex::add_ref_sequence(int64_t id, const NucletideSequence& seq) {
     auto offset = annotations.empty() ? 0 : annotations.back().offset + annotations.back().len;
     auto& ref = annotations.emplace_back(bntann1_t {
         .offset = offset,
         .len = (int32_t) seq.padded_len,
         .n_ambs = (int32_t) seq.holes_num,
         .gi = 0,
-        .name = make_c_string(id),
+        .name = reinterpret_cast<char*>(id),
         .anno = nullptr,
     });
 
     // Reference sequence may be hundred of megabytes big, so we force usage of memcopy;
-    // TODO: resize initilizes data. use something else
+    // TODO: resize initilizes data. Use something else.
     size_t old_size = pac_forward.size();
     pac_forward.resize(old_size + pac_byte_size(seq.len));
     std::copy_n(seq.pac, pac_byte_size(seq.len), pac_forward.data() + old_size);
@@ -139,8 +139,6 @@ BwaIndex::~BwaIndex() {
     // Manual deleation prevents libbwa from running free on vector.data().
     if (index != nullptr) {
         bwt_destroy(index->bwt);
-        for(size_t i = 0 ; i < index->bns->n_seqs; i++)
-            free(index->bns->anns[i].name);
         free(index->bns);
         free(index);
     }
@@ -166,11 +164,11 @@ std::vector<BwaMatch> BwaIndex::align_sequence(const NucletideSequence& seq) con
         int64_t ref_offset = index->bns->anns[align->rid].offset;
         mem_aln_t details = mem_reg2aln(options, index->bns, index->pac, query.length(), query.data(), align);
         matches.push_back({
-            .ref_id = std::string_view(index->bns->anns[align->rid].name),
+            .ref_id = reinterpret_cast<int64_t>(index->bns->anns[align->rid].name),
             .ref_subseq = extract_reference_subseq(index, align->rb, align->re),
-            .ref_match_begin = align->rb - ref_offset,
-            .ref_match_end = align->re - ref_offset,
-            .ref_match_len = align->re - align->rb,
+            .ref_match_begin = static_cast<int32_t>(align->rb - ref_offset),
+            .ref_match_end = static_cast<int32_t>(align->re - ref_offset),
+            .ref_match_len = static_cast<int32_t>(align->re - align->rb),
             .query_subseq = query.substr(align->qb, align->qe - align->qb),
             .query_match_begin = align->qb,
             .query_match_end = align->qe,

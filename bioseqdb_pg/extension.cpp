@@ -109,7 +109,6 @@ Portal iterate_nuclseq_table(const char* sql, Oid nuclseq_oid, F f) {
         int n = SPI_processed;
         SPITupleTable* tuptable = SPI_tuptable;
         TupleDesc tupdesc = tuptable->tupdesc;
-        bool is_null = false;
 
         switch(SPI_gettypeid(tupdesc, 1)) {
             case INT2OID:
@@ -125,12 +124,15 @@ Portal iterate_nuclseq_table(const char* sql, Oid nuclseq_oid, F f) {
 
         for(int i = 0 ; i < n; i++) {
             HeapTuple tup = tuptable->vals[i];
+            bool null_id = false, null_seq = false;
 
-            char* id = SPI_getvalue(tup, tupdesc, 1);
-            Datum nucls = SPI_getbinval(tup, tupdesc, 2, &is_null);
+            Datum id = SPI_getbinval(tup, tupdesc, 1, &null_id);
+            Datum nucls = SPI_getbinval(tup, tupdesc, 2, &null_seq);
 
+            elog(NOTICE, "bwa search supplied with null id or sequence");
 
-            f(id, reinterpret_cast<RawNucleotideSequence*>(PG_DETOAST_DATUM(nucls))->wrapped());
+            if (!null_id && !null_seq)
+                f(static_cast<int64_t>(id), reinterpret_cast<RawNucleotideSequence*>(PG_DETOAST_DATUM(nucls))->wrapped());
         }
 
         SPI_freetuptable(tuptable);
@@ -199,21 +201,15 @@ Tuplestorestate* create_tuplestore(ReturnSetInfo* rsi, TupleDesc& tupledesc) {
     return tupstore;
 }
 
-HeapTuple build_tuple_bwa(std::optional<std::string_view> query_id_view, const BwaMatch& match, TupleDesc& tupledesc) {
-    int ref_id = 0, query_id = 0;
-    std::from_chars(match.ref_id.cbegin(), match.ref_id.cend(), ref_id);
-    if (query_id_view.has_value()) {
-        std::from_chars(query_id_view->cbegin(), query_id_view->cend(), query_id);
-    }
-
+HeapTuple build_tuple_bwa(std::optional<int64_t> query_id, const BwaMatch& match, TupleDesc& tupledesc) {
     std::array<bool, 15> nulls;
     std::array<Datum, 15> values { {
-        Int32GetDatum(ref_id),
+        Int64GetDatum(match.ref_id),
         PointerGetDatum(nuclseq_from_text(match.ref_subseq)),
-        Int32GetDatum((int) match.ref_match_begin),
-        Int32GetDatum((int) match.ref_match_end),
-        Int32GetDatum((int) match.ref_match_len),
-        Int32GetDatum(query_id),
+        Int32GetDatum(match.ref_match_begin),
+        Int32GetDatum(match.ref_match_end),
+        Int32GetDatum(match.ref_match_len),
+        Int64GetDatum(query_id.value_or(0)),
         PointerGetDatum(nuclseq_from_text(match.query_subseq)),
         Int32GetDatum(match.query_match_begin),
         Int32GetDatum(match.query_match_end),
@@ -226,7 +222,7 @@ HeapTuple build_tuple_bwa(std::optional<std::string_view> query_id_view, const B
     } };
 
     nulls.fill(false);
-    nulls[5] = !query_id_view.has_value();
+    nulls[5] = !query_id.has_value();
 
     return heap_form_tuple(tupledesc, values.data(), nulls.data());
 }

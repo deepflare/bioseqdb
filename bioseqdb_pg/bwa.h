@@ -13,15 +13,15 @@ extern "C" {
 #include "sequence.h"
 
 struct BwaMatch {
-    std::string_view ref_id;
+    int64_t ref_id;
     std::string ref_subseq;
-    int64_t ref_match_begin;
-    int64_t ref_match_end;
-    int64_t ref_match_len;
+    int32_t ref_match_begin;
+    int32_t ref_match_end;
+    int32_t ref_match_len;
     std::string_view query_subseq;
-    int query_match_begin;
-    int query_match_end;
-    int query_match_len;
+    int32_t query_match_begin;
+    int32_t query_match_end;
+    int32_t query_match_len;
     bool is_primary;
     bool is_secondary;
     bool is_reverse;
@@ -36,7 +36,7 @@ public:
 
     std::vector<BwaMatch> align_sequence(const NucletideSequence& seq) const;
     void build();
-    void add_ref_sequence(std::string_view id, const NucletideSequence& seq);
+    void add_ref_sequence(int64_t id, const NucletideSequence& seq);
 
     mem_opt_t* options;
 
