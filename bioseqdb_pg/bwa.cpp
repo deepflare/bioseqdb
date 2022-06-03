@@ -86,7 +86,7 @@ inline namespace {
 
 BwaIndex::BwaIndex(): index(nullptr), pac_forward(), holes(), annotations(), options(mem_opt_init()) {}
 
-void BwaIndex::add_ref_sequence(std::string_view id, const PgNucleotideSequence& seq) {
+void BwaIndex::add_ref_sequence(std::string_view id, const NucletideSequence& seq) {
     auto offset = annotations.empty() ? 0 : annotations.back().offset + annotations.back().len;
     auto& ref = annotations.emplace_back(bntann1_t {
         .offset = offset,
@@ -147,12 +147,12 @@ BwaIndex::~BwaIndex() {
     free(options);
 }
 
-std::vector<BwaMatch> BwaIndex::align_sequence(const PgNucleotideSequence& seq) const {
+std::vector<BwaMatch> BwaIndex::align_sequence(const NucletideSequence& seq) const {
     if(pac_forward.empty())
         return {};
     // bwa algorithm is mainly used with very short query sequences (< 100 symbols) so cost of to_malloc_text here
     // is very small.
-    char* raw_query = seq.to_palloc_text();
+    char* raw_query = seq.to_text_malloc();
     std::string_view query(raw_query);
 
     mem_alnreg_v aligns = mem_align1(options, index->bwt, index->bns, index->pac, query.length(), query.data()); // get all the hits (was c_str())

@@ -34,9 +34,9 @@ public:
     explicit BwaIndex();
     ~BwaIndex();
 
-    std::vector<BwaMatch> align_sequence(const PgNucleotideSequence& seq) const;
+    std::vector<BwaMatch> align_sequence(const NucletideSequence& seq) const;
     void build();
-    void add_ref_sequence(std::string_view id, const PgNucleotideSequence& seq);
+    void add_ref_sequence(std::string_view id, const NucletideSequence& seq);
 
     mem_opt_t* options;
 

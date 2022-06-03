@@ -60,19 +60,19 @@ Datum nuclseq_in(PG_FUNCTION_ARGS) {
 
 PG_FUNCTION_INFO_V1(nuclseq_out);
 Datum nuclseq_out(PG_FUNCTION_ARGS) {
-    auto nucls = reinterpret_cast<RawPgNucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)))->wrapped();
-    PG_RETURN_CSTRING(nucls.to_palloc_text());
+    auto nucls = reinterpret_cast<RawNucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)))->wrapped();
+    PG_RETURN_CSTRING(nucls.to_text_malloc());
 }
 
 PG_FUNCTION_INFO_V1(nuclseq_len);
 Datum nuclseq_len(PG_FUNCTION_ARGS) {
-    auto nucls = reinterpret_cast<RawPgNucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)))->wrapped();
+    auto nucls = reinterpret_cast<RawNucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)))->wrapped();
     PG_RETURN_UINT64(nucls.length());
 }
 
 PG_FUNCTION_INFO_V1(nuclseq_content);
 Datum nuclseq_content(PG_FUNCTION_ARGS) {
-    auto nucls = reinterpret_cast<RawPgNucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)))->wrapped();
+    auto nucls = reinterpret_cast<RawNucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)))->wrapped();
     std::string_view needle = PG_GETARG_CSTRING(1);
     if (needle.length() != 1 || std::find(allowed_nucleotides.begin(), allowed_nucleotides.end(), needle[0]) == allowed_nucleotides.end()) {
         raise_pg_error(ERRCODE_INVALID_PARAMETER_VALUE,
@@ -85,16 +85,14 @@ Datum nuclseq_content(PG_FUNCTION_ARGS) {
 
 PG_FUNCTION_INFO_V1(nuclseq_complement);
 Datum nuclseq_complement(PG_FUNCTION_ARGS) {
-    auto nucls = reinterpret_cast<RawPgNucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)))->wrapped();
+    auto nucls = reinterpret_cast<RawNucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)))->wrapped();
     PG_RETURN_POINTER(nucls.complement());
 }
 
 PG_FUNCTION_INFO_V1(nuclseq_reverse);
 Datum nuclseq_reverse(PG_FUNCTION_ARGS) {
-   /* auto nucls = reinterpret_cast<PgNucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)))->text();
-    auto complement = PgNucleotideSequence::palloc(nucls.size());
-    std::reverse_copy(nucls.begin(), nucls.end(), complement->begin());
-    PG_RETURN_POINTER(complement); */
+    auto nucls = reinterpret_cast<RawNucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)))->wrapped();
+    PG_RETURN_POINTER(nucls.reverse());
 }
 
 }
@@ -132,7 +130,7 @@ Portal iterate_nuclseq_table(const char* sql, Oid nuclseq_oid, F f) {
             Datum nucls = SPI_getbinval(tup, tupdesc, 2, &is_null);
 
 
-            f(id, reinterpret_cast<RawPgNucleotideSequence*>(PG_DETOAST_DATUM(nucls))->wrapped());
+            f(id, reinterpret_cast<RawNucleotideSequence*>(PG_DETOAST_DATUM(nucls))->wrapped());
         }
 
         SPI_freetuptable(tuptable);
@@ -242,7 +240,7 @@ Datum nuclseq_search_bwa(PG_FUNCTION_ARGS) {
     ReturnSetInfo* rsi = reinterpret_cast<ReturnSetInfo*>(fcinfo->resultinfo);
     assert_can_return_set(rsi);
 
-    auto nucls = reinterpret_cast<RawPgNucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)))->wrapped();
+    auto nucls = reinterpret_cast<RawNucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)))->wrapped();
     const char* reference_sql = PG_GETARG_CSTRING(1);
 
     if (int ret = SPI_connect(); ret < 0)
