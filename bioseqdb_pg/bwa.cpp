@@ -145,13 +145,9 @@ BwaIndex::~BwaIndex() {
     free(options);
 }
 
-std::vector<BwaMatch> BwaIndex::align_sequence(const NucletideSequence& seq) const {
+std::vector<BwaMatch> BwaIndex::align_string_view(std::string_view query) const {
     if(pac_forward.empty())
         return {};
-    // bwa algorithm is mainly used with very short query sequences (< 100 symbols) so cost of to_malloc_text here
-    // is very small.
-    char* raw_query = seq.to_text_malloc();
-    std::string_view query(raw_query);
 
     mem_alnreg_v aligns = mem_align1(options, index->bwt, index->bns, index->pac, query.length(), query.data()); // get all the hits (was c_str())
     std::vector<BwaMatch> matches;
@@ -169,7 +165,7 @@ std::vector<BwaMatch> BwaIndex::align_sequence(const NucletideSequence& seq) con
             .ref_match_begin = static_cast<int32_t>(align->rb - ref_offset),
             .ref_match_end = static_cast<int32_t>(align->re - ref_offset),
             .ref_match_len = static_cast<int32_t>(align->re - align->rb),
-            .query_subseq = query.substr(align->qb, align->qe - align->qb),
+            .query_subseq = std::string(query.substr(align->qb, align->qe - align->qb)),
             .query_match_begin = align->qb,
             .query_match_end = align->qe,
             .query_match_len = align->qe - align->qb,
@@ -185,4 +181,15 @@ std::vector<BwaMatch> BwaIndex::align_sequence(const NucletideSequence& seq) con
 
     free(aligns.a);
     return matches;
+}
+
+std::vector<BwaMatch> BwaIndex::align_sequence(const NucletideSequence& seq) const {
+    char* raw_query = seq.to_text_malloc();
+    std::string_view query(raw_query, seq.length());
+
+    std::vector<BwaMatch> ret = align_string_view(query);
+    free(raw_query);
+
+    // rvo
+    return ret;
 }

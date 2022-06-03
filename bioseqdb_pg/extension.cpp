@@ -7,6 +7,11 @@
 #include <optional>
 #include <stdint.h>
 #include <cstdlib>
+#include <mutex>
+#include <queue>
+#include <thread>
+#include <condition_variable>
+#include <algorithm>
 
 extern "C" {
 #include <postgres.h>
@@ -282,15 +287,63 @@ Datum nuclseq_multi_search_bwa(PG_FUNCTION_ARGS) {
     Tuplestorestate* ret_tupstore = create_tuplestore(rsi, ret_tupdesc);
     AttInMetadata* attr_input_meta = TupleDescGetAttInMetadata(ret_tupdesc);
 
-    iterate_nuclseq_table(query_sql, nuclseq_oid, [&](auto id, auto nuclseq){
-        std::vector<BwaMatch> aligns = bwa.align_sequence(nuclseq);
 
-        for (BwaMatch& row : aligns) {
-            HeapTuple tuple = build_tuple_bwa(id, row, ret_tupdesc);
-            tuplestore_puttuple(ret_tupstore, tuple);
-            heap_freetuple(tuple);
-        }
+    std::mutex m_queries;
+    std::queue<std::tuple<int64_t, char*, uint32_t>> queries;
+
+    iterate_nuclseq_table(query_sql, nuclseq_oid, [&](auto id, auto nuclseq){
+        queries.emplace(id, nuclseq.to_text_malloc(), nuclseq.length());
     });
+    size_t queries_cnt = queries.size();
+
+    unsigned threads_num = 6;
+    std::vector<std::unique_ptr<std::thread>> threads;
+
+    std::mutex m_matches;
+    std::queue<std::pair<int64_t, std::vector<BwaMatch>>> matches;
+    std::condition_variable cv;
+
+    for(unsigned i = 0 ; i < threads_num ; i++) {
+        threads.push_back(std::make_unique<std::thread>([&]() {
+            m_queries.lock();
+            while (!queries.empty()) {
+                auto [id, seq, len] = queries.front();
+                queries.pop();
+                m_queries.unlock();
+
+                std::vector<BwaMatch> aligns = bwa.align_string_view(std::string_view(seq, len));
+                free(seq);
+
+                m_matches.lock();
+                matches.emplace(id, move(aligns));
+                cv.notify_one();
+                m_matches.unlock();
+
+                m_queries.lock();
+            }
+            m_queries.unlock();
+        }));
+    }
+
+    size_t matches_cnt = 0;
+    while (matches_cnt < queries_cnt) {
+        std::unique_lock lk(m_matches);
+        cv.wait(lk, [&] { return !matches.empty(); });
+        while(!matches.empty()) {
+            const auto& [id, aligns] = matches.front();
+            for (const BwaMatch& row : aligns) {
+                HeapTuple tuple = build_tuple_bwa(id, row, ret_tupdesc);
+                tuplestore_puttuple(ret_tupstore, tuple);
+                heap_freetuple(tuple);
+            }
+            matches.pop();
+            matches_cnt++;
+        }
+
+    }
+
+    for(auto& t: threads)
+        t->join();
 
     SPI_finish();
 

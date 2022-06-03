@@ -18,7 +18,7 @@ struct BwaMatch {
     int32_t ref_match_begin;
     int32_t ref_match_end;
     int32_t ref_match_len;
-    std::string_view query_subseq;
+    std::string query_subseq;
     int32_t query_match_begin;
     int32_t query_match_end;
     int32_t query_match_len;
@@ -34,7 +34,9 @@ public:
     explicit BwaIndex();
     ~BwaIndex();
 
+    std::vector<BwaMatch> align_string_view(std::string_view query) const;
     std::vector<BwaMatch> align_sequence(const NucletideSequence& seq) const;
+
     void build();
     void add_ref_sequence(int64_t id, const NucletideSequence& seq);
 
