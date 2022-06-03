@@ -6,13 +6,11 @@
 #include <vector>
 
 extern "C" {
+#include <bwa/bwt.h>
 #include <bwa/bwamem.h>
 }
 
-struct BwaSequence {
-    std::string_view id;
-    std::string_view seq;
-};
+#include "sequence.h"
 
 struct BwaMatch {
     std::string_view ref_id;
@@ -33,14 +31,19 @@ struct BwaMatch {
 
 class BwaIndex {
 public:
-    explicit BwaIndex(const std::vector<BwaSequence>& refs);
+    explicit BwaIndex();
     ~BwaIndex();
 
-    std::vector<BwaMatch> align_sequence(std::string_view query) const;
+    std::vector<BwaMatch> align_sequence(const PgNucleotideSequence& seq) const;
+    void build();
+    void add_ref_sequence(std::string_view id, const PgNucleotideSequence& seq);
 
     mem_opt_t* options;
 
 private:
+    std::vector<ubyte_t> pac_forward;
+    std::vector<bntamb1_t> holes;
+    std::vector<bntann1_t> annotations; 
     bwaidx_t* index;
-    bool is_empty;
 };
+
