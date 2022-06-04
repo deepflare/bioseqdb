@@ -15,25 +15,21 @@ static_assert(alignof(bntamb1_t) == 8, "This should not happen");
 
 constexpr std::string_view allowed_nucleotides = "ACGTNWSMKRYBDHV";
 
-struct RawNucleotideSequence;
-
-struct NucletideSequence {
-    char* to_text_palloc() const;
-    char* to_text_malloc() const;
+struct NucleotideSequence {
     uint32_t occurences(char symbol) const;
     size_t length() const { return len; }
-    RawNucleotideSequence* complement() const; 
-    RawNucleotideSequence* reverse() const;
 
-    uint32_t holes_num;
-    uint32_t len;
-    uint32_t padded_len;
-    bntamb1_t* holes;
-    ubyte_t* pac;
-};
+    const bntamb1_t* holes() const { return reinterpret_cast<const bntamb1_t*>(data); }
+    const ubyte_t* pac() const { return reinterpret_cast<const ubyte_t*>(data + holes_num * sizeof(bntamb1_t)); }
 
-struct RawNucleotideSequence {
-    NucletideSequence wrapped();
+    bntamb1_t* holes() { return reinterpret_cast<bntamb1_t*>(data); }
+    ubyte_t* pac() { return reinterpret_cast<ubyte_t*>(data + holes_num * sizeof(bntamb1_t)); }
+
+    NucleotideSequence* complement() const;
+    NucleotideSequence* reverse() const;
+    char* to_text_palloc() const;
+    char* to_text_malloc() const;
+
 
     char vl_len[4];
     uint32_t holes_num;
@@ -42,7 +38,7 @@ struct RawNucleotideSequence {
     ubyte_t data[];
 };
 
-RawNucleotideSequence* nuclseq_from_text(std::string_view str);
+NucleotideSequence* nuclseq_from_text(std::string_view str);
 
 static inline size_t pac_byte_size(size_t x) { return x / 4 + (x % 4 != 0 ? 1 : 0); }
 
@@ -57,5 +53,3 @@ static inline uint8_t pac_raw_get(const ubyte_t* pac, size_t index) {
 static inline void pac_raw_set(ubyte_t* pac, size_t index, uint8_t value) {
     pac[index >> 2] |= value << ((~index & 3) << 1);
 }
-
-

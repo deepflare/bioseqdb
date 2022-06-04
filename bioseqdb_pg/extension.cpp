@@ -60,39 +60,39 @@ Datum nuclseq_in(PG_FUNCTION_ARGS) {
 
 PG_FUNCTION_INFO_V1(nuclseq_out);
 Datum nuclseq_out(PG_FUNCTION_ARGS) {
-    auto nucls = reinterpret_cast<RawNucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)))->wrapped();
-    PG_RETURN_CSTRING(nucls.to_text_malloc());
+    auto nucls = reinterpret_cast<const NucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)));
+    PG_RETURN_CSTRING(nucls->to_text_palloc());
 }
 
 PG_FUNCTION_INFO_V1(nuclseq_len);
 Datum nuclseq_len(PG_FUNCTION_ARGS) {
-    auto nucls = reinterpret_cast<RawNucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)))->wrapped();
-    PG_RETURN_UINT64(nucls.length());
+    auto nucls = reinterpret_cast<const NucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)));
+    PG_RETURN_UINT64(nucls->length());
 }
 
 PG_FUNCTION_INFO_V1(nuclseq_content);
 Datum nuclseq_content(PG_FUNCTION_ARGS) {
-    auto nucls = reinterpret_cast<RawNucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)))->wrapped();
+    auto nucls = reinterpret_cast<NucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)));
     std::string_view needle = PG_GETARG_CSTRING(1);
     if (needle.length() != 1 || std::find(allowed_nucleotides.begin(), allowed_nucleotides.end(), needle[0]) == allowed_nucleotides.end()) {
         raise_pg_error(ERRCODE_INVALID_PARAMETER_VALUE,
                 errmsg("invalid nucleotide in nuclseq_content: '%s'", needle.data()));
     }
 
-    auto matches = static_cast<double>(nucls.occurences(needle[0]));
-    PG_RETURN_FLOAT8(matches / nucls.length());
+    auto matches = static_cast<double>(nucls->occurences(needle[0]));
+    PG_RETURN_FLOAT8(matches / nucls->length());
 }
 
 PG_FUNCTION_INFO_V1(nuclseq_complement);
 Datum nuclseq_complement(PG_FUNCTION_ARGS) {
-    auto nucls = reinterpret_cast<RawNucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)))->wrapped();
-    PG_RETURN_POINTER(nucls.complement());
+    auto nucls = reinterpret_cast<const NucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)));
+    PG_RETURN_POINTER(nucls->complement());
 }
 
 PG_FUNCTION_INFO_V1(nuclseq_reverse);
 Datum nuclseq_reverse(PG_FUNCTION_ARGS) {
-    auto nucls = reinterpret_cast<RawNucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)))->wrapped();
-    PG_RETURN_POINTER(nucls.reverse());
+    auto nucls = reinterpret_cast<const NucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)));
+    PG_RETURN_POINTER(nucls->reverse());
 }
 
 }
@@ -129,10 +129,8 @@ Portal iterate_nuclseq_table(const char* sql, Oid nuclseq_oid, F f) {
             Datum id = SPI_getbinval(tup, tupdesc, 1, &null_id);
             Datum nucls = SPI_getbinval(tup, tupdesc, 2, &null_seq);
 
-            elog(NOTICE, "bwa search supplied with null id or sequence");
-
             if (!null_id && !null_seq)
-                f(static_cast<int64_t>(id), reinterpret_cast<RawNucleotideSequence*>(PG_DETOAST_DATUM(nucls))->wrapped());
+                f(static_cast<int64_t>(id), reinterpret_cast<const NucleotideSequence*>(PG_DETOAST_DATUM(nucls)));
         }
 
         SPI_freetuptable(tuptable);
@@ -148,7 +146,7 @@ BwaIndex bwa_index_from_query(const char* sql, Oid nuclseq_oid) {
     size_t count = 0;
 
     Portal portal = iterate_nuclseq_table(sql, nuclseq_oid, [&](auto id, auto nucls){
-        bwa.add_ref_sequence(id, nucls);
+        bwa.add_ref_sequence(id, *nucls);
         count++;
     });
     SPI_cursor_close(portal);
@@ -236,7 +234,7 @@ Datum nuclseq_search_bwa(PG_FUNCTION_ARGS) {
     ReturnSetInfo* rsi = reinterpret_cast<ReturnSetInfo*>(fcinfo->resultinfo);
     assert_can_return_set(rsi);
 
-    auto nucls = reinterpret_cast<RawNucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)))->wrapped();
+    auto nucls = reinterpret_cast<const NucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)));
     const char* reference_sql = PG_GETARG_CSTRING(1);
 
     if (int ret = SPI_connect(); ret < 0)
@@ -251,7 +249,7 @@ Datum nuclseq_search_bwa(PG_FUNCTION_ARGS) {
     Tuplestorestate* ret_tupstore = create_tuplestore(rsi, ret_tupdesc);
     AttInMetadata* attr_input_meta = TupleDescGetAttInMetadata(ret_tupdesc);
 
-    std::vector<BwaMatch> aligns = bwa.align_sequence(nucls);
+    std::vector<BwaMatch> aligns = bwa.align_sequence(*nucls);
 
     for (BwaMatch& row : aligns) {
         HeapTuple tuple = build_tuple_bwa(std::nullopt, row, ret_tupdesc);
@@ -283,7 +281,7 @@ Datum nuclseq_multi_search_bwa(PG_FUNCTION_ARGS) {
     AttInMetadata* attr_input_meta = TupleDescGetAttInMetadata(ret_tupdesc);
 
     iterate_nuclseq_table(query_sql, nuclseq_oid, [&](auto id, auto nuclseq){
-        std::vector<BwaMatch> aligns = bwa.align_sequence(nuclseq);
+        std::vector<BwaMatch> aligns = bwa.align_sequence(*nuclseq);
 
         for (BwaMatch& row : aligns) {
             HeapTuple tuple = build_tuple_bwa(id, row, ret_tupdesc);

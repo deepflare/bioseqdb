@@ -52,13 +52,6 @@ inline namespace {
         return bwt;
     }
 
-    char* make_c_string(std::string_view str_view) {
-        char* c_str = (char*) malloc(str_view.length() + 1);
-        std::copy(str_view.begin(), str_view.end(), c_str);
-        c_str[str_view.length()] = '\0';
-        return c_str;
-    }
-
     std::string extract_reference_subseq(bwaidx_t* index, int64_t ref_begin, int64_t ref_end) {
         // TODO directly return PgNucleotideSequence (low priority).
         std::string subseq(ref_end - ref_begin, '?');
@@ -86,11 +79,11 @@ inline namespace {
 
 BwaIndex::BwaIndex(): index(nullptr), pac_forward(), holes(), annotations(), options(mem_opt_init()) {}
 
-void BwaIndex::add_ref_sequence(int64_t id, const NucletideSequence& seq) {
-    auto offset = annotations.empty() ? 0 : annotations.back().offset + annotations.back().len;
+void BwaIndex::add_ref_sequence(int64_t id, const NucleotideSequence& seq) {
+    int64_t offset = pac_forward.size() * 4;
     auto& ref = annotations.emplace_back(bntann1_t {
         .offset = offset,
-        .len = (int32_t) seq.padded_len,
+        .len = (int32_t) seq.len,
         .n_ambs = (int32_t) seq.holes_num,
         .gi = 0,
         .name = reinterpret_cast<char*>(id),
@@ -101,10 +94,10 @@ void BwaIndex::add_ref_sequence(int64_t id, const NucletideSequence& seq) {
     // TODO: resize initilizes data. Use something else.
     size_t old_size = pac_forward.size();
     pac_forward.resize(old_size + pac_byte_size(seq.len));
-    std::copy_n(seq.pac, pac_byte_size(seq.len), pac_forward.data() + old_size);
+    std::copy_n(seq.pac(), pac_byte_size(seq.len), pac_forward.data() + old_size);
 
     // There is not so much of holes in standand genome, so nicer code is better.
-    std::transform(seq.holes, seq.holes + seq.holes_num, std::back_inserter(holes), [&offset](const auto& hole) {
+    std::transform(seq.holes(), seq.holes() + seq.holes_num, std::back_inserter(holes), [&offset](const auto& hole) {
         bntamb1_t ret = hole;
         ret.offset += offset;
         return hole;
@@ -145,12 +138,12 @@ BwaIndex::~BwaIndex() {
     free(options);
 }
 
-std::vector<BwaMatch> BwaIndex::align_sequence(const NucletideSequence& seq) const {
+std::vector<BwaMatch> BwaIndex::align_sequence(const NucleotideSequence& seq) const {
     if(pac_forward.empty())
         return {};
     // bwa algorithm is mainly used with very short query sequences (< 100 symbols) so cost of to_malloc_text here
-    // is very small.
-    char* raw_query = seq.to_text_malloc();
+    // is minimal.
+    char* raw_query = seq.to_text_palloc();
     std::string_view query(raw_query);
 
     mem_alnreg_v aligns = mem_align1(options, index->bwt, index->bns, index->pac, query.length(), query.data()); // get all the hits (was c_str())
