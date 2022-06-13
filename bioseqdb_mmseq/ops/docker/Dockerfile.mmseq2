@@ -1,0 +1,36 @@
+FROM ubuntu:20.04
+
+ARG PG_DEV_VERSION=14
+
+COPY . .
+ 
+ARG DEBIAN_FRONTEND=noninteractive
+
+# based on https://askubuntu.com/questions/355565/how-do-i-install-the-latest-version-of-cmake-from-the-command-line
+ADD https://cmake.org/files/v3.23/cmake-3.23.1-linux-x86_64.sh /cmake-3.23.1-linux-x86_64.sh
+RUN mkdir /opt/cmake
+RUN sh /cmake-3.23.1-linux-x86_64.sh --prefix=/opt/cmake --skip-license
+RUN ln -s /opt/cmake/bin/cmake /usr/local/bin/cmake
+RUN cmake --version
+
+RUN set -x \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        build-essential \ 
+        gcc \
+        g++ \
+        cmake \
+        make \
+        libkrb5-dev \
+        libc6-dev \ 
+        libssl-dev \
+        libpq-dev \
+    && mkdir /mmseq2/build \
+    && cd /mmseq2/build \
+    && cmake .. \
+    && make 
+
+# .sh or .sql files from docker-entrypoint-initdb.d
+# are run right after db is created
+ENTRYPOINT echo 8080 | /mmseq2/build/mmseq2

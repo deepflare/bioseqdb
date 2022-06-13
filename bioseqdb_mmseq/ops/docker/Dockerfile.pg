@@ -1,0 +1,32 @@
+FROM postgres:14.2
+
+ARG PG_DEV_VERSION=14
+ENV MMSEQ_HOSTNAME=mmseq2
+
+COPY . .
+ 
+RUN set -x \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        build-essential \ 
+        gcc \
+        g++ \
+        cmake \
+        make \
+        libkrb5-dev \
+        libc6-dev \ 
+        libssl-dev \
+        libpq-dev \
+        postgresql-server-dev-$PG_DEV_VERSION \
+    && mkdir /pg/build \
+    && cd /pg/build \
+    && cmake -D PostgreSQL_TYPE_INCLUDE_DIR=/usr/include/postgresql/$PG_DEV_VERSION/server/ -D MMSEQ_HOSTNAME=$MMSEQ_HOSTNAME -D MMSEQ_TIMEOUT=36000000 .. \
+    && make \
+    && make install 
+
+# .sh or .sql files from docker-entrypoint-initdb.d
+# are run right after db is created
+COPY ./ops/docker/entrypoint.sql /docker-entrypoint-initdb.d/
+COPY ./examples/DB.sql /docker-entrypoint-initdb.d/y_DB.sql
+COPY ./examples/QUERY.sql /docker-entrypoint-initdb.d/y_QUERY.sql
