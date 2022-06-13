@@ -1,0 +1,6 @@
+FROM dpage/pgadmin4
+
+USER root
+ADD ./ops/docker/pg_admin_config /var/lib/pgadmin
+
+RUN /venv/bin/python3 /pgadmin4/setup.py --load-servers /var/lib/pgadmin/config.json --replace

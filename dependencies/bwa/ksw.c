@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
-#include <emmintrin.h>
+#include <simde/x86/sse2.h>
 #include "ksw.h"
 
 #ifdef USE_MALLOC_WRAPPERS

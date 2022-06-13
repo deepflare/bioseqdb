@@ -18,14 +18,15 @@ RUN set -ex \
       postgresql-server-dev-14 \
 	  libbz2-dev \
 	  zlib1g-dev \
-	  liblzma-dev
-
-ENV LIB_FLAGS "-g -Wall -O2 -fPIC -march=native -DSIMDE_ENABLE_NATIVE_ALIASES"
-ENV BWA_TAG master
-ENV HTS_TAG 1.5
+	  liblzma-dev \
+    libpq-dev \
+    postgresql-server-dev-all
 
 ADD . /bioseqdb
-
 WORKDIR /bioseqdb
 
-RUN cd hello_world && mkdir build && cd build && cmake .. && make
+RUN mkdir build && cd build && cmake .. && make && make install
+
+# .sh or .sql files from docker-entrypoint-initdb.d
+# are run right after db is created
+COPY ./ops/docker/entrypoint.sql /docker-entrypoint-initdb.d/

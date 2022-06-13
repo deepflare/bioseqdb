@@ -72,7 +72,7 @@ CREATE FUNCTION bwa_opts(
 		pen_clip3, pen_clip5, zdrop, bandwidth,
 		o_del, o_ins, e_del, e_ins
 	) as opts
-$$ LANGUAGE SQL IMMUTABLE STRICT;
+$$ LANGUAGE SQL IMMUTABLE;
 
 CREATE TYPE bwa_result AS (
     ref_id BIGINT,
@@ -92,12 +92,11 @@ CREATE TYPE bwa_result AS (
     score INTEGER
 );
 
-CREATE FUNCTION nuclseq_search_bwa(query_sequence NUCLSEQ, reference_sql CSTRING, opts bwa_options DEFAULT bwa_opts())
+CREATE OR REPLACE FUNCTION nuclseq_search_bwa(nuclseq, cstring, bwa_options DEFAULT bwa_opts())
     RETURNS SETOF bwa_result
-    AS 'MODULE_PATHNAME'
-    LANGUAGE C STABLE STRICT;
+    AS 'MODULE_PATHNAME', 'nuclseq_search_bwa' LANGUAGE C STABLE STRICT;
 
-CREATE FUNCTION nuclseq_multi_search_bwa(query_sql CSTRING, reference_sql CSTRING, opts bwa_options DEFAULT bwa_opts())
+
+CREATE OR REPLACE FUNCTION nuclseq_multi_search_bwa(cstring, cstring, bwa_options DEFAULT bwa_opts())
     RETURNS SETOF bwa_result
-    AS 'MODULE_PATHNAME'
-    LANGUAGE C STABLE STRICT;
+    AS 'MODULE_PATHNAME', 'nuclseq_multi_search_bwa' LANGUAGE C STABLE STRICT;
