@@ -1,0 +1,8 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+constexpr char MMSEQ_HOSTNAME[] = "{{ 'MMSEQ_HOSTNAME' | env }}";
+constexpr uint16_t MMSEQ_PORT = {{ 'MMSEQ_PORT' | env }};
+constexpr int64_t MMSEQ_TIMEOUT = {{ 'MMSEQ_TIMEOUT' | env }};
+
+#endif // CONFIG_H

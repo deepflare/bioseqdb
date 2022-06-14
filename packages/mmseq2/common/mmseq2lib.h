@@ -6,7 +6,7 @@
 #include <string>
 #include <stdint.h>
 #include <iostream>
-#include "rpc/server.h"
+#include <rpc/server.h>
 
 namespace common
 {

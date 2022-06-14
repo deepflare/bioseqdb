@@ -1,6 +1,7 @@
 #ifndef BIOSEQDB_MMSEQ2_H
 #define BIOSEQDB_MMSEQ2_H
 
+#include <rpc/server.h>
 #include <stdint.h>
 #include <memory>
 #include <exception>

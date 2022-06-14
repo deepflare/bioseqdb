@@ -6,6 +6,7 @@ extern "C" {
 }
 #include <string>
 #include <memory>
+#include <rpc/server.h>
 #include "../common/mmseq2lib.h"
 
 namespace DB

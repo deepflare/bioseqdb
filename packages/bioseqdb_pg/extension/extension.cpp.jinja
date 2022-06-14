@@ -1,0 +1,17 @@
+#include <rpc/client.h>
+#include <rpc/server.h>
+
+#include "common.h"
+
+extern "C" {
+    PG_MODULE_MAGIC;
+}
+
+{% include "types/ext.cpp" %}
+
+{% include "basics/ext.cpp" %}
+
+{% include "bwa/ext.cpp" %}
+
+{% include "mmseqs2/ext.cpp" %}
+

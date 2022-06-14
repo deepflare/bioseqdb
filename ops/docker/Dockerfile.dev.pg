@@ -22,11 +22,15 @@ RUN set -ex \
     libpq-dev \
     postgresql-server-dev-all
 
+RUN apt-get install -y python3 python3-pip && pip install pip poetry --upgrade
 ADD . /bioseqdb
 WORKDIR /bioseqdb
 
-RUN mkdir build && cd build && cmake .. && make && make install
+RUN chmod u+x /bioseqdb/ops/docker/dev_pg_docker_entrypoint.sh 
+ENTRYPOINT ["/bioseqdb/ops/docker/dev_pg_docker_entrypoint.sh"]
+
+#mkdir build && cd build && cmake .. && make && make install
 
 # .sh or .sql files from docker-entrypoint-initdb.d
 # are run right after db is created
-COPY ./ops/docker/entrypoint.sql /docker-entrypoint-initdb.d/
+#COPY ./ops/docker/entrypoint.sql /docker-entrypoint-initdb.d/

@@ -1,26 +1,7 @@
-#include <algorithm>
-#include <array>
-#include <chrono>
-#include <charconv>
-#include <string>
-#include <string_view>
-#include <optional>
-#include <stdint.h>
-#include <cstdlib>
 
-extern "C" {
-#include <postgres.h>
-#include <fmgr.h>
-#include <funcapi.h>
-#include <miscadmin.h>
-#include <executor/spi.h>
-#include <catalog/pg_type.h>
-}
-
+#include "common.h"
 #include "bwa.h"
 #include "sequence.h"
-
-#define raise_pg_error(code, msg) ereport(ERROR, (errcode(code)), msg);
 
 namespace {
 
@@ -33,69 +14,6 @@ text *string_view_to_text(std::string_view s) {
 
 }
 
-extern "C" {
-
-PG_MODULE_MAGIC;
-
-// Lowercase nucleotides should not be allowed to be stored in the database. Their meaning in non-standardized, and some
-// libraries can handle them poorly (for example, by replacing them with Ns). They should be handled before importing
-// them into the database, in order to make the internals more robust and prevent accidental usage. A valid option when
-// importing is replacing them with uppercase ones, as their most common use is for repeating but valid nucleotides.
-PG_FUNCTION_INFO_V1(nuclseq_in);
-Datum nuclseq_in(PG_FUNCTION_ARGS) {
-    std::string_view text = PG_GETARG_CSTRING(0);
-
-    if (text.length() > INT32_MAX / 4)
-        raise_pg_error(ERRCODE_INVALID_PARAMETER_VALUE, errmsg("provided sequence is too long"));
-
-    for (char chr : text) {
-        if (std::find(allowed_nucleotides.begin(), allowed_nucleotides.end(), chr) == allowed_nucleotides.end()) {
-            raise_pg_error(ERRCODE_INVALID_TEXT_REPRESENTATION,
-                    errmsg("invalid nucleotide in nuclseq_in: '%c'", chr));
-        }
-    }
-
-    PG_RETURN_POINTER(nuclseq_from_text(text));
-}
-
-PG_FUNCTION_INFO_V1(nuclseq_out);
-Datum nuclseq_out(PG_FUNCTION_ARGS) {
-    auto nucls = reinterpret_cast<const NucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)));
-    PG_RETURN_CSTRING(nucls->to_text_palloc());
-}
-
-PG_FUNCTION_INFO_V1(nuclseq_len);
-Datum nuclseq_len(PG_FUNCTION_ARGS) {
-    auto nucls = reinterpret_cast<const NucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)));
-    PG_RETURN_UINT64(nucls->length());
-}
-
-PG_FUNCTION_INFO_V1(nuclseq_content);
-Datum nuclseq_content(PG_FUNCTION_ARGS) {
-    auto nucls = reinterpret_cast<NucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)));
-    std::string_view needle = PG_GETARG_CSTRING(1);
-    if (needle.length() != 1 || std::find(allowed_nucleotides.begin(), allowed_nucleotides.end(), needle[0]) == allowed_nucleotides.end()) {
-        raise_pg_error(ERRCODE_INVALID_PARAMETER_VALUE,
-                errmsg("invalid nucleotide in nuclseq_content: '%s'", needle.data()));
-    }
-
-    auto matches = static_cast<double>(nucls->occurences(needle[0]));
-    PG_RETURN_FLOAT8(matches / nucls->length());
-}
-
-PG_FUNCTION_INFO_V1(nuclseq_complement);
-Datum nuclseq_complement(PG_FUNCTION_ARGS) {
-    auto nucls = reinterpret_cast<const NucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)));
-    PG_RETURN_POINTER(nucls->complement());
-}
-
-PG_FUNCTION_INFO_V1(nuclseq_reverse);
-Datum nuclseq_reverse(PG_FUNCTION_ARGS) {
-    auto nucls = reinterpret_cast<const NucleotideSequence*>(PG_DETOAST_DATUM(PG_GETARG_POINTER(0)));
-    PG_RETURN_POINTER(nucls->reverse());
-}
-
-}
 
 namespace {
 
@@ -252,10 +170,8 @@ HeapTuple build_tuple_bwa(std::optional<int64_t> query_id, const BwaMatch& match
 
 }
 
-extern "C" {
-
-PG_FUNCTION_INFO_V1(nuclseq_search_bwa);
-Datum nuclseq_search_bwa(PG_FUNCTION_ARGS) {
+POSTGRES_FUNCTION(nuclseq_search_bwa)
+{
     ReturnSetInfo* rsi = reinterpret_cast<ReturnSetInfo*>(fcinfo->resultinfo);
     assert_can_return_set(rsi);
 
@@ -288,9 +204,10 @@ Datum nuclseq_search_bwa(PG_FUNCTION_ARGS) {
     rsi->setDesc = ret_tupdesc;
     return (Datum) nullptr;
 }
+POSTGRES_FUNCTION_END()
 
-PG_FUNCTION_INFO_V1(nuclseq_multi_search_bwa);
-Datum nuclseq_multi_search_bwa(PG_FUNCTION_ARGS) {
+POSTGRES_FUNCTION(nuclseq_multi_search_bwa)
+{
     ReturnSetInfo* rsi = reinterpret_cast<ReturnSetInfo*>(fcinfo->resultinfo);
     assert_can_return_set(rsi);
 
@@ -324,5 +241,4 @@ Datum nuclseq_multi_search_bwa(PG_FUNCTION_ARGS) {
     rsi->setDesc = ret_tupdesc;
     return (Datum) nullptr;
 }
-
-}
+POSTGRES_FUNCTION_END()

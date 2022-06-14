@@ -1,43 +1,3 @@
-CREATE TYPE NUCLSEQ;
-
-CREATE FUNCTION nuclseq_in(CSTRING)
-    RETURNS NUCLSEQ
-    AS 'MODULE_PATHNAME'
-    LANGUAGE C IMMUTABLE STRICT;
-
-CREATE FUNCTION nuclseq_out(NUCLSEQ)
-    RETURNS CSTRING
-    AS 'MODULE_PATHNAME'
-    LANGUAGE C IMMUTABLE STRICT;
-
-CREATE TYPE nuclseq (
-    internallength = VARIABLE,
-    storage = EXTENDED,
-	alignment = double,
-    input = nuclseq_in,
-    output = nuclseq_out
-);
-
-CREATE FUNCTION nuclseq_len(NUCLSEQ)
-    RETURNS INTEGER
-    AS 'MODULE_PATHNAME'
-    LANGUAGE C IMMUTABLE STRICT;
-
-CREATE FUNCTION nuclseq_content(NUCLSEQ, CSTRING)
-    RETURNS DOUBLE PRECISION
-    AS 'MODULE_PATHNAME'
-    LANGUAGE C IMMUTABLE STRICT;
-
-CREATE FUNCTION nuclseq_complement(NUCLSEQ)
-    RETURNS NUCLSEQ
-    AS 'MODULE_PATHNAME'
-    LANGUAGE C IMMUTABLE STRICT;
-
-CREATE FUNCTION nuclseq_reverse(NUCLSEQ)
-    RETURNS NUCLSEQ
-    AS 'MODULE_PATHNAME'
-    LANGUAGE C IMMUTABLE STRICT;
-
 CREATE TYPE bwa_options AS (
 	min_seed_len INTEGER,
 	max_occ INTEGER,
@@ -76,12 +36,12 @@ $$ LANGUAGE SQL IMMUTABLE;
 
 CREATE TYPE bwa_result AS (
     ref_id BIGINT,
-    ref_subseq NUCLSEQ,
+    ref_subseq nucl_seq,
     ref_match_start INTEGER,
     ref_match_end INTEGER,
     ref_match_len INTEGER,
     query_id BIGINT,
-    query_subseq NUCLSEQ,
+    query_subseq nucl_seq,
     query_match_start INTEGER,
     query_match_end INTEGER,
     query_match_len INTEGER,
@@ -92,7 +52,7 @@ CREATE TYPE bwa_result AS (
     score INTEGER
 );
 
-CREATE OR REPLACE FUNCTION nuclseq_search_bwa(nuclseq, cstring, bwa_options DEFAULT bwa_opts())
+CREATE OR REPLACE FUNCTION nuclseq_search_bwa(nucl_seq, cstring, bwa_options DEFAULT bwa_opts())
     RETURNS SETOF bwa_result
     AS 'MODULE_PATHNAME', 'nuclseq_search_bwa' LANGUAGE C STABLE STRICT;
 
