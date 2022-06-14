@@ -23,11 +23,11 @@ CREATE TYPE nucl_seq (
 CREATE TYPE amb_aa_seq;
 
 CREATE FUNCTION amb_aa_seq_in(cstring)
-    RETURNS nucl_seq
+    RETURNS amb_aa_seq
     AS 'MODULE_PATHNAME'
     LANGUAGE C IMMUTABLE STRICT;
 
-CREATE FUNCTION amb_aa_seq_out(nucl_seq)
+CREATE FUNCTION amb_aa_seq_out(amb_aa_seq)
     RETURNS CSTRING
     AS 'MODULE_PATHNAME'
     LANGUAGE C IMMUTABLE STRICT;

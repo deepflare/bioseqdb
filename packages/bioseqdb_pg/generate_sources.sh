@@ -8,10 +8,10 @@ mkdir -p gen > /dev/null 2> /dev/null \
     -o gen/extension.cpp \
     extension/extension.cpp.jinja \
 && poetry run yasha \
-    -o gen/${NAME}--${VERSION}.sql \
+    -o gen/${POSTGRES_EXTENSION_NAME}--${POSTGRES_EXTENSION_VERSION}.sql \
     extension/extension.sql.jinja \
 && poetry run yasha \
-    -o gen/${NAME}.control \
+    -o gen/${POSTGRES_EXTENSION_NAME}.control \
     extension/extension.control.jinja \
 && poetry run yasha \
     -o gen/config.h \

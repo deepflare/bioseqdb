@@ -6,3 +6,6 @@ CMakeFiles
 cmake_install.cmake
 build
 add_repo.sh
+**/gen/
+gen/
+_logs/
