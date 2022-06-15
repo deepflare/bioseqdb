@@ -9,3 +9,4 @@ add_repo.sh
 **/gen/
 gen/
 _logs/
+**/__pycache__/

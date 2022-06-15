@@ -15,13 +15,7 @@ do
     if [[ "$?" == "0" ]]; then
         make install 2>&1 | tee /logs/docker_dev_build.log
     fi
-    echo "[i] Run postgres now"
-    pkill postgres > /dev/null 2> /dev/null
-    export POSTGRES_PASSWORD=password
-    export POSTGRES_USER=bioseqdb
-    export POSTGRES_DB=bioseqdb
-    bash /usr/local/bin/docker-entrypoint.sh postgres
-    echo "[i] Wait for any change in the source code..."
+    su - postgres -c 'cd /bioseqdb/packages/db_tests && poetry install && poetry run pytest'
     fswatch -1 /bioseqdb/*
 done
 

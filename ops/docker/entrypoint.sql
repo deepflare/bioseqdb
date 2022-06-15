@@ -3,7 +3,7 @@ CREATE EXTENSION bioseqdb;
 
 CREATE TABLE dataset (
     id serial primary key not null,
-    seq nuclseq not null
+    seq nucl_seq not null
 );
 
 INSERT INTO dataset (seq) VALUES (nuclseq_in('ACTATCTATCTACTATCTATCTTCTTATCTTAACTATCTATCTTCTTA'));

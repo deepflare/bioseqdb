@@ -32,7 +32,7 @@ POSTGRES_FUNCTION_END()
 
 /////////
 
-POSTGRES_FUNCTION(aa_in)
+POSTGRES_FUNCTION(aa_seq_in)
 {
     std::string_view text = PG_GETARG_CSTRING(0);
 

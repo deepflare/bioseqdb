@@ -28,6 +28,7 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}/src")
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/extension")
 
 file(GLOB SRC_TEMPLATE_FILES ${PROJECT_SOURCE_DIR}/extension/*.jinja)
+file(GLOB SRC_EXTENSION_FILES ${PROJECT_SOURCE_DIR}/extension/*/*)
 
 
 function(print_directory_variables dir skip_regex)
@@ -53,7 +54,7 @@ function(print_directory_variables dir skip_regex)
     add_custom_command(
       OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/gen/config.h ${CMAKE_CURRENT_SOURCE_DIR}/gen/extension.cpp ${CMAKE_CURRENT_SOURCE_DIR}/gen/${POSTGRES_EXTENSION_NAME}--${POSTGRES_EXTENSION_VERSION}.sql ${CMAKE_CURRENT_SOURCE_DIR}/gen/${POSTGRES_EXTENSION_NAME}.control
       COMMAND ${CMAKE_COMMAND} -E env ${VARS_LIST} ${CMAKE_CURRENT_SOURCE_DIR}/generate_sources.sh
-      DEPENDS ${SRC_TEMPLATE_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/generate_sources.sh
+      DEPENDS ${SRC_TEMPLATE_FILES} ${SRC_EXTENSION_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/generate_sources.sh
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     )
 endfunction(print_directory_variables)
