@@ -1,32 +1,43 @@
 from sqlalchemy.sql import text
 from sqlalchemy.exc import DataError
-from db_tests.engine import BioseqdbTestDatabase
-from db_tests.utils import Alphabet
-import pytest
+from db_tests.storage.engine import BioseqdbTestEngine
+from db_tests.utils import Alphabet, SequenceGenerator
+from db_tests.models import BWAAlignment
+from db_tests.storage.records_list import RecordsList
 import string
+import pytest
 
-def test_basic_types():
-    with BioseqdbTestDatabase() as db:
-        db(
+class TestBasics:
+    """
+        Testing sequence basic operations
+    """
+
+    def test_bwa_alignments(
+        self,
+        seq_generator: SequenceGenerator,
+        db: BioseqdbTestEngine,
+    ):
+
+        assert db(
             f"""
             SELECT * FROM nuclseq_len(nuclseq_in(:seq))
             """,
-            [(5,)],
-            args=dict(seq="AACTG")
-        )
-        db(
+            args=dict(seq="AACTG"),
+        ) == RecordsList([(5,)])
+
+        assert db(
             f"""
             SELECT * FROM nuclseq_reverse(nuclseq_in(:seq))
             """,
-            [("GTCAA",)],
-            args=dict(seq="AACTG")
-        )
-        for letter in string.printable:
-            seq = "AACTG"
-            db(
-                f"""
-                SELECT * FROM nuclseq_content(nuclseq_in(:seq), :letter)
-                """,
-                [(seq.count(letter)/len(seq),)] if letter in Alphabet.NUCL_SEQ.value else DataError,
-                args=dict(seq=seq, letter=letter)
-            )
+            args=dict(seq="AACTG"),
+        ) == RecordsList([("GTCAA",)])
+
+        # for letter in string.printable:
+        #     seq = "AACTG"
+        #     assert db(
+        #         f"""
+        #         SELECT * FROM nuclseq_content(nuclseq_in(:seq), :letter)
+        #         """,
+        #         args=dict(seq=seq, letter=letter),
+        #     ) == (RecordsList([(seq.count(letter)/len(seq),)]) if letter in Alphabet.NUCL_SEQ.value else DataError)
+
